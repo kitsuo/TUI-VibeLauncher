@@ -245,7 +245,7 @@ During the typing animation, large output (more than 1,500 characters waiting) i
 
 ## Building
 
-No prebuilt APK is published. Build it from the source as follows.
+A ready-to-install APK is available on the [Releases page](https://github.com/kitsuo/TUI-VibeLauncher/releases). To build it from the source instead, follow these steps.
 
 **1. Install a JDK**
 

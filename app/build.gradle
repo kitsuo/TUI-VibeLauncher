@@ -27,8 +27,8 @@ android {
         applicationId "ohi.andre.consolelauncher"
         minSdk 21
         targetSdk 35
-        versionCode 303
-        versionName "v6.15.1-updated-v4"
+        versionCode 304
+        versionName "6.15.1-vibe.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
