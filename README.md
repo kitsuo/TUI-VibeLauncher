@@ -1,246 +1,246 @@
 # TUI-VibeLauncher
 
-Lanceur Android en mode terminal : l'écran d'accueil est une ligne de commande. Ce dépôt est un fork de [T-UI Launcher](https://github.com/fandreuz/TUI-ConsoleLauncher). Il le met à jour pour Android 15 et lui ajoute un client SSH, des outils réseau et des commandes de terminal.
+An Android launcher where the home screen is a command line. This repository is a fork of [T-UI Launcher](https://github.com/fandreuz/TUI-ConsoleLauncher). It updates the launcher for Android 15 and adds an SSH client, network tools and terminal commands.
 
-Développé pour un Samsung Galaxy S25. Les fonctions sont testées sur l'émulateur Android 15 (API 35). La version minimale reste Android 5.0 (API 21).
+Built for a Samsung Galaxy S25. Features are tested on the Android 15 emulator (API 35). The minimum version is still Android 5.0 (API 21).
 
-## Sommaire
+## Contents
 
-- [Compatibilité Android 15](#compatibilité-android-15)
-- [Nouvelles commandes](#nouvelles-commandes)
-- [SSH et serveurs](#ssh-et-serveurs)
-- [Outils Linux via Termux](#outils-linux-via-termux)
+- [Android 15 compatibility](#android-15-compatibility)
+- [New commands](#new-commands)
+- [SSH and servers](#ssh-and-servers)
+- [Linux tools through Termux](#linux-tools-through-termux)
 - [Terminal](#terminal)
-- [Réseau](#réseau)
+- [Network](#network)
 - [Notifications](#notifications)
-- [Sauvegarde et démarrage](#sauvegarde-et-démarrage)
-- [Apparence](#apparence)
-- [Limites connues](#limites-connues)
-- [Compilation](#compilation)
-- [Crédits](#crédits)
+- [Backup and startup](#backup-and-startup)
+- [Appearance](#appearance)
+- [Known limitations](#known-limitations)
+- [Building](#building)
+- [Credits](#credits)
 
-## Compatibilité Android 15
+## Android 15 compatibility
 
-| Changement | Raison |
+| Change | Reason |
 |---|---|
-| SDK cible 35, Gradle 8.14, Android Gradle Plugin 8.11, Java 17 | Les versions précédentes ne compilent pas avec un JDK récent et ne ciblent pas Android 15. |
-| Fond noir par défaut | Le fond était blanc sur Android 15. |
-| Affichage bord à bord désactivé | Android 15 l'impose par défaut, ce qui faisait passer le texte sous la barre d'état. |
-| Notifications interactives corrigées | La réponse rapide depuis une notification T-UI était bloquée par Android 14 et plus. |
-| Autorisations demandées une seule fois | T-UI redemandait les autorisations à chaque démarrage. Le stockage et l'accès aux notifications se demandent maintenant au moment où une commande en a besoin, ou avec `tui -storage` et `tui -notifaccess`. |
-| Commandes système (`ls`, `cat`, `ping`, `ps`...) | Elles étaient bloquées par une dépendance à BusyBox. Elles utilisent maintenant les outils fournis par Android. |
+| Target SDK 35, Gradle 8.14, Android Gradle Plugin 8.11, Java 17 | The previous versions don't build with a recent JDK and don't target Android 15. |
+| Black background by default | The background was white on Android 15. |
+| Edge-to-edge display disabled | Android 15 enables it by default, which put the text under the status bar. |
+| Interactive notifications fixed | Quick reply from a T-UI notification was blocked by Android 14 and later. |
+| Permissions asked only once | T-UI asked for its permissions at every start. Storage and notification access are now requested when a command needs them, or with `tui -storage` and `tui -notifaccess`. |
+| System commands (`ls`, `cat`, `ping`, `ps`...) | They were blocked by a dependency on BusyBox. They now use the tools shipped with Android. |
 
-BusyBox ne peut plus être exécuté sur Android 10 et plus : le système interdit d'exécuter un programme téléchargé par une application. `bbman -install` l'explique désormais et renvoie vers Termux.
+BusyBox can no longer run on Android 10 and later: the system doesn't allow an app to execute a program it downloaded. `bbman -install` now explains this and points to Termux.
 
-## Nouvelles commandes
+## New commands
 
-| Commande | Rôle |
+| Command | Purpose |
 |---|---|
-| `ssh` | Client SSH intégré, avec serveurs enregistrés |
-| `termux` | Exécution d'outils Linux via l'application Termux |
-| `history` | Recherche dans l'historique des commandes |
-| `scan` | Liste des appareils du réseau local |
-| `ports` | Ports TCP ouverts d'une machine |
-| `wol` | Allumage d'une machine à distance (Wake-on-LAN) |
-| `myip` | Adresses IP locales et adresse publique |
-| `findout` | Surlignage d'un texte dans le terminal |
-| `notif` | Notifications dans le terminal |
-| `fetch` | Résumé du téléphone |
-| `fx` | Effets visuels |
-| `tui -backup`, `tui -restore`, `tui -rc` | Sauvegarde, restauration, script de démarrage |
+| `ssh` | Built-in SSH client, with saved servers |
+| `termux` | Runs Linux tools through the Termux app |
+| `history` | Searches the command history |
+| `scan` | Lists the devices on the local network |
+| `ports` | Lists the open TCP ports of a machine |
+| `wol` | Turns on a machine remotely (Wake-on-LAN) |
+| `myip` | Shows the local IP addresses and the public one |
+| `findout` | Highlights text in the terminal |
+| `notif` | Shows notifications in the terminal |
+| `fetch` | Shows a summary of the phone |
+| `fx` | Visual effects |
+| `tui -backup`, `tui -restore`, `tui -rc` | Backup, restore, startup script |
 
-`help <commande>` affiche le détail de chaque commande dans l'application.
+`help <command>` shows the details of each command in the app.
 
-## SSH et serveurs
+## SSH and servers
 
-Le client SSH fonctionne sans application supplémentaire.
-
-```
-ssh root@192.168.10.100              ouvre une session
-ssh root@192.168.10.100 uptime       exécute une commande et affiche le résultat
-ssh -p 2222 user@host                autre port (user@host:2222 fonctionne aussi)
-ssh -i fichier user@host             autre clé privée
-```
-
-- À la première connexion, l'empreinte du serveur s'affiche et doit être confirmée. Elle est ensuite enregistrée et vérifiée à chaque connexion.
-- Les mots de passe sont masqués à la saisie, y compris pour `sudo` sur le serveur. Ils ne sont jamais enregistrés dans l'historique.
-- Pendant une session, tout ce qui est tapé part vers le serveur. `~.` ferme la session, `~c` envoie Ctrl+C, `~d` envoie Ctrl+D.
-
-**Clé SSH**
+The SSH client works without any other app.
 
 ```
-ssh -keygen      crée une paire de clés ed25519 et affiche la clé publique
-ssh -pubkey      affiche la clé publique
+ssh root@192.168.10.100              opens a session
+ssh root@192.168.10.100 uptime       runs one command and prints the result
+ssh -p 2222 user@host                another port (user@host:2222 works too)
+ssh -i keyfile user@host             another private key
 ```
 
-Une fois la clé publique ajoutée dans `~/.ssh/authorized_keys` sur le serveur, la connexion se fait sans mot de passe.
+- On the first connection, the server fingerprint is shown and must be confirmed. It is then saved and checked on every connection.
+- Passwords are hidden while typing, including for `sudo` on the server. They are never saved in the history.
+- During a session, everything typed is sent to the server. `~.` closes the session, `~c` sends Ctrl+C, `~d` sends Ctrl+D.
 
-**Serveurs enregistrés**
+**SSH key**
 
 ```
-ssh -add srv root@192.168.10.100                    enregistre un serveur
+ssh -keygen      creates an ed25519 key pair and shows the public key
+ssh -pubkey      shows the public key
+```
+
+Once the public key is added to `~/.ssh/authorized_keys` on the server, no password is needed.
+
+**Saved servers**
+
+```
+ssh -add srv root@192.168.10.100                    saves a server
 ssh -add nas admin@192.168.10.20 -mac AA:BB:CC:DD:EE:FF
-ssh srv                                             se connecte au serveur enregistré
-ssh -ls                                             liste les serveurs
-ssh -rm srv                                         supprime un serveur
-ssh -forget 192.168.10.100                          oublie l'empreinte d'un serveur réinstallé
+ssh srv                                             connects to a saved server
+ssh -ls                                             lists the saved servers
+ssh -rm srv                                         removes a server
+ssh -forget 192.168.10.100                          forgets the fingerprint of a reinstalled server
 ```
 
-Les serveurs enregistrés apparaissent sur l'écran d'accueil avec leur état, mis à jour toutes les 60 secondes :
+Saved servers are shown on the home screen with their status, updated every 60 seconds:
 
 ```
 ● srv 6ms  ○ nas down
 ```
 
-Un serveur est considéré comme joignable s'il accepte une connexion sur son port SSH. L'intervalle se règle avec l'option `servers_check_interval`, l'affichage avec `show_servers`.
+A server counts as reachable if it accepts a connection on its SSH port. The interval is set with the `servers_check_interval` option, the display with `show_servers`.
 
-## Outils Linux via Termux
+## Linux tools through Termux
 
-Android ne fournit qu'un jeu réduit de commandes Unix. Si [Termux](https://f-droid.org/packages/com.termux/) est installé, les commandes absentes d'Android (`git`, `python`, `nmap`, `rsync`...) lui sont transmises automatiquement, et le résultat s'affiche dans T-UI.
+Android ships only a small set of Unix commands. If [Termux](https://f-droid.org/packages/com.termux/) is installed, the commands Android lacks (`git`, `python`, `nmap`, `rsync`...) are passed to it automatically, and the result is shown in T-UI.
 
 ```
-termux -setup                  configuration guidée (une seule fois)
-git status                     transmis automatiquement à Termux
-termux pkg install -y git      installe un paquet
-termux -open htop              ouvre une fenêtre Termux pour les programmes plein écran
+termux -setup                  guided setup (once)
+git status                     passed to Termux automatically
+termux pkg install -y git      installs a package
+termux -open htop              opens a Termux window for full-screen programs
 ```
 
-Termux doit être installé depuis F-Droid. La version du Play Store n'est plus maintenue.
+Termux must be installed from F-Droid. The Play Store version is no longer maintained.
 
 ## Terminal
 
-**Interrompre une commande (Ctrl+C)**
+**Stopping a command (Ctrl+C)**
 
-Une commande qui ne s'arrête pas d'elle-même (`ping`, `top`...) s'interrompt de trois façons :
+A command that doesn't stop on its own (`ping`, `top`...) can be stopped in three ways:
 
-- un appui long sur le bouton d'effacement de la barre d'outils ;
-- taper `^c` ou `~c` ;
-- Ctrl+C sur un clavier physique.
+- long press on the clear button of the toolbar;
+- type `^c` or `~c`;
+- Ctrl+C on a physical keyboard.
 
-La commande reçoit le même signal qu'avec un vrai Ctrl+C. `ping` affiche donc ses statistiques avant de s'arrêter.
+The command receives the same signal as with a real Ctrl+C, so `ping` prints its statistics before stopping.
 
-**Historique**
+**History**
 
-L'historique est conservé entre les redémarrages (500 commandes au maximum).
+The history is kept across restarts (500 commands at most).
 
 ```
-history              dernières commandes
-history ssh          commandes contenant "ssh"
-history -clear       efface l'historique
+history              latest commands
+history ssh          commands containing "ssh"
+history -clear       clears the history
 ```
 
-Les flèches de la barre d'outils parcourent cet historique.
+The arrows of the toolbar browse this history.
 
-**Complétion**
+**Completion**
 
-Le bouton Tab de la barre d'outils, ou la touche Tab d'un clavier physique, complète avec la première suggestion. La complétion couvre les noms de serveurs, les options des nouvelles commandes et les chemins de fichiers.
+The Tab button of the toolbar, or the Tab key of a physical keyboard, completes with the first suggestion. Completion covers server names, the options of the new commands and file paths.
 
-**Tuyaux et redirections**
+**Pipes and redirections**
 
-Les commandes T-UI acceptent `|`, `>` et `>>`, comme les commandes système :
+T-UI commands accept `|`, `>` and `>>`, like system commands:
 
 ```
 scan | grep 192.168.10
 history | grep ssh
-fetch > /sdcard/Download/telephone.txt
+fetch > /sdcard/Download/phone.txt
 myip >> /sdcard/Download/ip.txt
 ```
 
-**Recherche et copie**
+**Search and copy**
 
 ```
-findout erreur       surligne "erreur" dans le terminal et fait défiler jusqu'à la dernière occurrence
-findout              retire le surlignage
+findout error        highlights "error" in the terminal and scrolls to the last match
+findout              removes the highlights
 ```
 
-Un appui long sur une ligne du terminal la copie dans le presse-papiers.
+A long press on a terminal line copies it to the clipboard.
 
-## Réseau
+## Network
 
 ```
-scan                          appareils qui répondent sur le réseau Wi-Fi (environ 5 secondes)
-ports srv                     ports courants : SSH, HTTP, SMB, Proxmox, Home Assistant, Plex...
-ports 192.168.10.1 1-1024     une plage de ports
-ports nas 22,80,443           une liste de ports
-wol nas                       allume une machine enregistrée avec son adresse MAC
-wol AA:BB:CC:DD:EE:FF         allume une machine à partir de son adresse MAC
-myip                          adresses IP locales et adresse publique
+scan                          devices that answer on the Wi-Fi network (about 5 seconds)
+ports srv                     common ports: SSH, HTTP, SMB, Proxmox, Home Assistant, Plex...
+ports 192.168.10.1 1-1024     a range of ports
+ports nas 22,80,443           a list of ports
+wol nas                       turns on a saved machine using its MAC address
+wol AA:BB:CC:DD:EE:FF         turns on a machine from its MAC address
+myip                          local IP addresses and public address
 ```
 
-Pour connaître l'adresse publique, `myip` interroge les sites api.ipify.org, icanhazip.com, checkip.amazonaws.com et ifconfig.me, dans cet ordre. Il passe au suivant si l'un d'eux est bloqué par le DNS du réseau.
+To get the public address, `myip` asks api.ipify.org, icanhazip.com, checkip.amazonaws.com and ifconfig.me, in that order. It moves to the next one when a site is blocked by the network's DNS.
 
-Le Wake-on-LAN doit être activé dans le BIOS et dans la configuration réseau de la machine à allumer.
+Wake-on-LAN must be enabled in the BIOS and in the network settings of the machine to turn on.
 
 ## Notifications
 
 ```
-notif on        affiche les nouvelles notifications dans le terminal
-notif off       arrête l'affichage
-notif list      liste les notifications en cours
-notif clear     efface les notifications qui peuvent l'être
+notif on        shows new notifications in the terminal
+notif off       stops showing them
+notif list      lists the current notifications
+notif clear     dismisses the notifications that can be dismissed
 ```
 
-`notif on` demande l'accès aux notifications si T-UI ne l'a pas encore. Les filtres et les formats d'affichage se règlent avec la commande `notifications`.
+`notif on` asks for notification access if T-UI doesn't have it yet. Filters and display formats are set with the `notifications` command.
 
-## Sauvegarde et démarrage
+## Backup and startup
 
-**Sauvegarde**
-
-```
-tui -backup      crée Download/t-ui-backup-AAAAMMJJ-HHMM.zip
-tui -restore     ouvre le sélecteur de fichiers et restaure la sauvegarde choisie
-```
-
-La sauvegarde contient les réglages, les alias, l'historique, les serveurs enregistrés, la clé SSH et le script de démarrage. Elle est utile parce que le dossier de T-UI est effacé à la désinstallation de l'application.
-
-La sauvegarde contient la clé SSH privée : elle ne doit pas être partagée.
-
-**Script de démarrage**
-
-`tui -rc` ouvre le fichier `.tuirc` dans l'éditeur. Ce fichier contient une commande par ligne, et les lignes commençant par `#` sont ignorées. Les commandes s'exécutent au démarrage de T-UI, mais pas lors d'un rechargement après un changement de réglage.
+**Backup**
 
 ```
-# exemple de .tuirc
+tui -backup      creates Download/t-ui-backup-YYYYMMDD-HHMM.zip
+tui -restore     opens the file picker and restores the chosen backup
+```
+
+The backup contains the settings, aliases, history, saved servers, SSH key and startup script. It matters because the T-UI folder is deleted when the app is uninstalled.
+
+The backup contains the private SSH key: don't share it.
+
+**Startup script**
+
+`tui -rc` opens the `.tuirc` file in the editor. The file holds one command per line; lines starting with `#` are ignored. The commands run when T-UI starts, but not when it reloads after a settings change.
+
+```
+# example .tuirc
 ssh srv uptime
 notif list
 ```
 
-## Apparence
+## Appearance
 
 ```
-fetch                       résumé du téléphone : modèle, Android, processeur, mémoire, stockage, batterie, IP
-fx crt on                   lignes de balayage, coins assombris et texte lumineux
-fx typing on                la sortie s'affiche caractère par caractère
-fx speed 3                  vitesse de l'animation, en millisecondes par caractère (6 par défaut)
-fx boot off                 désactive l'écran de démarrage
-theme -preset amber         moniteur ambre
-theme -preset matrix        vert sur noir
-theme -preset c64           bleu Commodore 64
+fetch                       phone summary: model, Android, CPU, memory, storage, battery, IP
+fx crt on                   scanlines, darker corners and glowing text
+fx typing on                output is shown one character at a time
+fx speed 3                  animation speed, in milliseconds per character (default 6)
+fx boot off                 turns off the boot screen
+theme -preset amber         amber monitor
+theme -preset matrix        green on black
+theme -preset c64           Commodore 64 blue
 ```
 
-L'écran de démarrage affiche au lancement de T-UI le processeur, la mémoire, le stockage, le réseau et la batterie du téléphone. Il est activé par défaut.
+When T-UI starts, the boot screen shows the phone's CPU, memory, storage, network and battery. It is on by default.
 
-Pendant l'animation de frappe, une sortie volumineuse (plus de 1 500 caractères en attente) s'affiche directement, pour ne pas prendre de retard.
+During the typing animation, large output (more than 1,500 characters waiting) is shown at once so the display doesn't fall behind.
 
-## Limites connues
+## Known limitations
 
-- **SSH** : le terminal T-UI affiche des lignes de texte. Les programmes plein écran (`vim`, `htop`, `nano`) ne fonctionnent pas dans une session SSH. Il faut utiliser `termux -open ssh user@host`.
-- **Termux, commandes en arrière-plan** : le résultat arrive en une fois, à la fin de la commande. Il est limité à 100 Ko par Termux. Ces commandes ne peuvent pas lire de saisie et ne peuvent pas être interrompues par Ctrl+C.
-- **Ctrl+C en mode root** : Ctrl+C n'agit pas sur les commandes lancées après `su`.
-- **`scan`** : il couvre au maximum 254 adresses (un réseau /24) autour de l'adresse du téléphone. Les appareils qui ne répondent ni au ping ni sur les ports 22, 80, 443 et 445 n'apparaissent pas.
-- **Effet CRT** : il ajoute un calque dessiné en permanence au-dessus de l'écran. Son effet sur l'autonomie n'a pas été mesuré.
+- **SSH**: the T-UI terminal shows lines of text. Full-screen programs (`vim`, `htop`, `nano`) don't work in an SSH session. Use `termux -open ssh user@host` instead.
+- **Termux background commands**: the result arrives all at once, when the command ends. Termux limits it to 100 KB. These commands can't read input and can't be stopped with Ctrl+C.
+- **Ctrl+C as root**: Ctrl+C has no effect on commands started after `su`.
+- **`scan`**: it covers at most 254 addresses (a /24 network) around the phone's address. Devices that answer neither ping nor ports 22, 80, 443 and 445 are not listed.
+- **CRT effect**: it adds a layer drawn over the whole screen. Its effect on battery life hasn't been measured.
 
-## Compilation
+## Building
 
-Prérequis : JDK 17 ou plus récent, Android SDK 35.
+Requirements: JDK 17 or later, Android SDK 35.
 
 ```
 ./gradlew assembleFdroidRelease
 ```
 
-L'APK est produit dans `app/build/outputs/apk/fdroid/release/`.
+The APK is written to `app/build/outputs/apk/fdroid/release/`.
 
-Pour signer la version release avec votre propre clé, ajoutez ces lignes dans `local.properties`, qui n'est pas versionné :
+To sign the release build with your own key, add these lines to `local.properties`, which is not versioned:
 
 ```
 storeFile=release.jks
@@ -249,12 +249,14 @@ keyAlias=...
 keyPassword=...
 ```
 
-Sans ces lignes, la version release est signée avec la clé de débogage.
+Without them, the release build is signed with the debug key.
 
-## Crédits
+More build, install and debugging commands are in [COMMANDS.md](COMMANDS.md).
 
-- Projet d'origine : [T-UI Launcher](https://github.com/fandreuz/TUI-ConsoleLauncher), Francesco Andreuzzi, licence MIT.
-- Communauté T-UI : [Reddit](https://www.reddit.com/r/tui_launcher/), [Telegram](https://t.me/tuilauncher), [wiki](https://github.com/Andre1299/TUI-ConsoleLauncher/wiki).
-- Bibliothèques : [JSch](https://github.com/mwiede/jsch) (SSH), [Bouncy Castle](https://www.bouncycastle.org/) (cryptographie), [OkHttp](https://github.com/square/okhttp), [CompareString2](https://github.com/fAndreuzzi/CompareString2), [HTML cleaner](http://htmlcleaner.sourceforge.net/), [JsonPath](https://github.com/json-path/JsonPath), [jsoup](https://github.com/jhy/jsoup/).
+## Credits
 
-Licence : MIT, voir [LICENSE](LICENSE).
+- Original project: [T-UI Launcher](https://github.com/fandreuz/TUI-ConsoleLauncher), Francesco Andreuzzi, MIT license.
+- T-UI community: [Reddit](https://www.reddit.com/r/tui_launcher/), [Telegram](https://t.me/tuilauncher), [wiki](https://github.com/Andre1299/TUI-ConsoleLauncher/wiki).
+- Libraries: [JSch](https://github.com/mwiede/jsch) (SSH), [Bouncy Castle](https://www.bouncycastle.org/) (cryptography), [OkHttp](https://github.com/square/okhttp), [CompareString2](https://github.com/fAndreuzzi/CompareString2), [HTML cleaner](http://htmlcleaner.sourceforge.net/), [JsonPath](https://github.com/json-path/JsonPath), [jsoup](https://github.com/jhy/jsoup/).
+
+License: MIT, see [LICENSE](LICENSE).
