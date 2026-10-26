@@ -189,8 +189,110 @@ public class theme extends ParamCommand {
                         
                         suggestionColors.put(Suggestions.alias_text_color, "#000000");
                         break;
+//                    retro presets: they look best with "fx crt on"
+                    case "amber":
+                        colors.put(backgroundTarget, transPrefix + "0A0600");
+                        colors.put(Theme.input_color, "#FFB000");
+                        colors.put(Theme.output_color, "#FFC23D");
+                        colors.put(Theme.device_color, "#FF9500");
+                        colors.put(Theme.enter_color, "#FFB000");
+                        colors.put(Theme.toolbar_color, "#CC8C00");
+                        colors.put(Theme.time_color, "#FFB000");
+                        colors.put(Theme.servers_up_color, "#FFB000");
+                        colors.put(Theme.servers_down_color, "#FF5A00");
+//                        status lines in the same tones
+                        colors.put(Theme.ram_color, "#FFB000");
+                        colors.put(Theme.storage_color, "#FFB000");
+                        colors.put(Theme.network_info_color, "#FFB000");
+                        colors.put(Theme.notes_color, "#B37B00");
+                        colors.put(Theme.weather_color, "#FFB000");
+                        colors.put(Theme.unlock_counter_color, "#B37B00");
+                        colors.put(Theme.battery_color_high, "#FFB000");
+                        colors.put(Theme.battery_color_medium, "#B37B00");
+                        colors.put(Theme.cursor_color, "#FFB000");
+                        colors.put(Theme.session_info_color, "#B37B00");
+                        colors.put(Theme.hint_color, "#B37B00");
+                        colors.put(Theme.battery_color_low, "#FF5A00");
+
+                        suggestionColors.put(Suggestions.apps_bg_color, "#FFB000");
+                        suggestionColors.put(Suggestions.alias_bg_color, "#CC8C00");
+                        suggestionColors.put(Suggestions.cmd_bg_color, "#FFC23D");
+                        suggestionColors.put(Suggestions.file_bg_color, "#E09B00");
+                        suggestionColors.put(Suggestions.song_bg_color, "#996900");
+                        break;
+                    case "matrix":
+                        colors.put(backgroundTarget, transPrefix + "000000");
+                        colors.put(Theme.input_color, "#00FF41");
+                        colors.put(Theme.output_color, "#00C832");
+                        colors.put(Theme.device_color, "#008F11");
+                        colors.put(Theme.enter_color, "#00FF41");
+                        colors.put(Theme.toolbar_color, "#00FF41");
+                        colors.put(Theme.time_color, "#00FF41");
+                        colors.put(Theme.servers_up_color, "#00FF41");
+                        colors.put(Theme.servers_down_color, "#FF2B2B");
+//                        status lines in the same tones
+                        colors.put(Theme.ram_color, "#00FF41");
+                        colors.put(Theme.storage_color, "#00FF41");
+                        colors.put(Theme.network_info_color, "#00FF41");
+                        colors.put(Theme.notes_color, "#008F11");
+                        colors.put(Theme.weather_color, "#00FF41");
+                        colors.put(Theme.unlock_counter_color, "#008F11");
+                        colors.put(Theme.battery_color_high, "#00FF41");
+                        colors.put(Theme.battery_color_medium, "#008F11");
+                        colors.put(Theme.cursor_color, "#00FF41");
+                        colors.put(Theme.session_info_color, "#008F11");
+                        colors.put(Theme.hint_color, "#008F11");
+                        colors.put(Theme.battery_color_low, "#FF2B2B");
+
+                        suggestionColors.put(Suggestions.apps_bg_color, "#003B00");
+                        suggestionColors.put(Suggestions.alias_bg_color, "#003B00");
+                        suggestionColors.put(Suggestions.cmd_bg_color, "#003B00");
+                        suggestionColors.put(Suggestions.file_bg_color, "#003B00");
+                        suggestionColors.put(Suggestions.song_bg_color, "#003B00");
+                        suggestionColors.put(Suggestions.apps_text_color, "#00FF41");
+                        suggestionColors.put(Suggestions.alias_text_color, "#00FF41");
+                        suggestionColors.put(Suggestions.cmd_text_color, "#00FF41");
+                        suggestionColors.put(Suggestions.file_text_color, "#00FF41");
+                        suggestionColors.put(Suggestions.song_text_color, "#00FF41");
+                        break;
+                    case "c64":
+//                        Commodore 64: light blue on dark blue
+                        colors.put(backgroundTarget, transPrefix + "40318D");
+                        colors.put(Theme.input_color, "#A59FFF");
+                        colors.put(Theme.output_color, "#A59FFF");
+                        colors.put(Theme.device_color, "#FFFFFF");
+                        colors.put(Theme.enter_color, "#A59FFF");
+                        colors.put(Theme.toolbar_color, "#A59FFF");
+                        colors.put(Theme.time_color, "#FFFFFF");
+                        colors.put(Theme.servers_up_color, "#9AE29B");
+                        colors.put(Theme.servers_down_color, "#FF7777");
+//                        status lines in the same tones
+                        colors.put(Theme.ram_color, "#A59FFF");
+                        colors.put(Theme.storage_color, "#A59FFF");
+                        colors.put(Theme.network_info_color, "#A59FFF");
+                        colors.put(Theme.notes_color, "#7869C4");
+                        colors.put(Theme.weather_color, "#A59FFF");
+                        colors.put(Theme.unlock_counter_color, "#7869C4");
+                        colors.put(Theme.battery_color_high, "#A59FFF");
+                        colors.put(Theme.battery_color_medium, "#7869C4");
+                        colors.put(Theme.cursor_color, "#A59FFF");
+                        colors.put(Theme.session_info_color, "#7869C4");
+                        colors.put(Theme.hint_color, "#7869C4");
+                        colors.put(Theme.battery_color_low, "#FF7777");
+
+                        suggestionColors.put(Suggestions.apps_bg_color, "#A59FFF");
+                        suggestionColors.put(Suggestions.alias_bg_color, "#7869C4");
+                        suggestionColors.put(Suggestions.cmd_bg_color, "#A59FFF");
+                        suggestionColors.put(Suggestions.file_bg_color, "#7869C4");
+                        suggestionColors.put(Suggestions.song_bg_color, "#7869C4");
+                        suggestionColors.put(Suggestions.apps_text_color, "#40318D");
+                        suggestionColors.put(Suggestions.alias_text_color, "#40318D");
+                        suggestionColors.put(Suggestions.cmd_text_color, "#40318D");
+                        suggestionColors.put(Suggestions.file_text_color, "#40318D");
+                        suggestionColors.put(Suggestions.song_text_color, "#40318D");
+                        break;
                     default:
-                        return "Unknown preset. Available: blue, red, green, pink, bw, cyberpunk";
+                        return "Unknown preset. Available: blue, red, green, pink, bw, cyberpunk, amber, matrix, c64";
                 }
 
                 // Force toolbar_bg to transparent to avoid coloring the entire bar

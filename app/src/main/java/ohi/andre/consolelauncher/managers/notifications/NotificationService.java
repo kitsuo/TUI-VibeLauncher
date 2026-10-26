@@ -70,6 +70,21 @@ public class NotificationService extends NotificationListenerService {
 
     StoppableThread bgThread;
 
+//    set while Android is connected to this listener: used by "notif -list" and "notif -clear"
+    public static volatile NotificationService connected;
+
+    @Override
+    public void onListenerConnected() {
+        super.onListenerConnected();
+        connected = this;
+    }
+
+    @Override
+    public void onListenerDisconnected() {
+        super.onListenerDisconnected();
+        if(connected == this) connected = null;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -141,6 +156,11 @@ public class NotificationService extends NotificationListenerService {
                             CharSequence s = Tuils.span(f, textColor);
 
                             Bundle bundle = NotificationCompat.getExtras(notification);
+
+//                            empty system notifications would be printed as "null --- null"
+                            if(bundle == null || (bundle.getCharSequence(android.app.Notification.EXTRA_TITLE) == null && bundle.getCharSequence(android.app.Notification.EXTRA_TEXT) == null)) {
+                                continue;
+                            }
 
                             if(bundle != null) {
                                 Matcher m = formatPattern.matcher(s);

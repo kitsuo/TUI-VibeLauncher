@@ -198,9 +198,10 @@ public class MusicService extends Service implements
 
             Intent i = new Intent(PublicIOReceiver.ACTION_CMD);
             i.putExtra(MainManager.MUSIC_SERVICE, true);
+            i.setPackage(context.getPackageName());
 
             NotificationCompat.Action action = new NotificationCompat.Action.Builder(R.mipmap.ic_launcher, label,
-                    PendingIntent.getBroadcast(context.getApplicationContext(), 10, i, Tuils.pendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)))
+                    PendingIntent.getBroadcast(context.getApplicationContext(), 10, i, Tuils.mutablePendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)))
                     .addRemoteInput(remoteInput)
                     .build();
 

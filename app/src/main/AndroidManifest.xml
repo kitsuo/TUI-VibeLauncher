@@ -37,6 +37,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <uses-permission android:name="ohi.andre.consolelauncher.permission.RECEIVE_CMD" />
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
+    <queries>
+        <package android:name="com.termux" />
+    </queries>
 
     <!-- features -->
     <uses-feature
@@ -240,6 +246,11 @@
         </service>
         <service 
             android:name=".managers.notifications.NotificationMonitorService"
+            android:exported="false" />
+
+        <!-- receives the output of commands run in Termux (sent through our own PendingIntent) -->
+        <receiver
+            android:name=".tuils.TermuxBridge$ResultReceiver"
             android:exported="false" />
 
         <activity

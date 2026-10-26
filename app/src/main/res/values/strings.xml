@@ -61,6 +61,19 @@
     <!-- helps texts -->
     <string name="firsthelp_text">First time with t-ui?\n\ttutorial -> view the tutorial on GitHub\n\thelp     -> get a list of available commands</string>
     <string name="permissions_toast">You have to grant Storage permission</string>
+    <string name="permissions_denied_toast">Some permissions were denied. T-UI will ask again when a command needs them</string>
+    <string name="output_storage_access_hint">T-UI can\'t access your files. Type \"tui -storage\" to grant access</string>
+    <string name="output_notification_access_hint">Notification access is not granted. Type \"tui -notifaccess\" to grant it</string>
+    <string name="output_access_already_granted">Access already granted</string>
+    <string name="help_history">Show and search the command history (kept across restarts)
+        \n\nUsage:
+        \nhistory -> show the latest commands
+        \nhistory [text] -> show the commands containing [text]
+        \nhistory -clear -> delete the whole history
+        \n\nTip: type \"history \" followed by some text, then tap a suggestion to put that command back in the input</string>
+    <string name="output_history_empty">History is empty</string>
+    <string name="output_history_no_match">No command matches</string>
+    <string name="output_history_cleared">History cleared</string>
     <string name="output_usedefapp">You can use \"apps -default_app\" instead</string>
 
     <!-- tui folder not found -->
@@ -324,7 +337,7 @@
     <string name="help_status">Get info about battery charge, wifi status and mobile data</string>
     <string name="help_theme">-apply [path] -> apply a theme from a local file
         \n-set [element] [color] -> manually set a color
-        \n-preset [name] -> apply a built-in preset (blue, red, green, pink, bw, cyberpunk)
+        \n-preset [name] -> apply a built-in preset (blue, red, green, pink, bw, cyberpunk, amber, matrix, c64)
         \n-old -> re-apply the theme that was replaced by the current one
         \n-standard -> apply the standard theme</string>
     <string name="help_time">Print the current time with the given format
@@ -340,7 +353,12 @@
         \n-log [fileName] -> log the text on screen to the file
         \n-priority [command] [int] -> set the priority of the selected command
         \n-sourcecode -> open the GitHub page
-        \n-folder -> print the path of the t-ui folder</string>
+        \n-folder -> print the path of the t-ui folder
+        \n-storage -> grant t-ui access to all your files (needed by open, share, tuixt, ls, cd...)
+        \n-notifaccess -> grant t-ui access to your notifications
+        \n-backup -> save settings, aliases, history, servers and ssh keys in Download (survives an uninstall)
+        \n-restore -> restore a backup
+        \n-rc -> edit the startup script (.tuirc): commands run when T-UI starts</string>
     <string name="help_tuinotes">-add [line] [text] -> add a new note at the specified line (the note will be appended if line is omitted)
         \n-rm [line] -> remove the note at the specified line
         \n-clear -> remove all the notes</string>
@@ -432,5 +450,63 @@
     </string>
 
     <string name="help_username">Change the username and device name: username [new_user] [new_device]</string>
-    <string name="help_bbman">-install -> download and setup BusyBox\n-remove -> uninstall BusyBox</string>
+    <string name="help_bbman">-install -> explains why BusyBox can\'t run on Android 10+ and what to use instead\n-remove -> delete a previously downloaded BusyBox</string>
+    <string name="help_ssh">Built-in ssh client
+        \n\nUsage:
+        \nssh user@host -> open a session: everything you type is sent to the server
+        \nssh user@host [command] -> run one command and print its output
+        \nssh -p [port] user@host -> use another port (user@host:port works too)
+        \nssh -i [key file] user@host -> use a specific private key
+        \nssh -keygen -> create your key pair (ed25519) and show the public key
+        \nssh -pubkey -> show your public key, to put in ~/.ssh/authorized_keys on the server
+        \nssh -forget [host] -> forget the saved key of a server (after a reinstall)
+        \n\nSaved servers:
+        \nssh -add [name] user@host[:port] (-i key) (-mac address) -> save a server, then: ssh [name]
+        \nssh -ls -> list the saved servers
+        \nssh -rm [name] -> remove a saved server
+        \nSaved servers are shown on the home screen with their status (Ui > show_servers)
+        \n\nDuring a session:
+        \n~. -> disconnect
+        \n~c or ^c (or long press on the clear button) -> send Ctrl+C
+        \n~d -> send Ctrl+D
+        \n\nFull screen programs (vim, htop) are not supported: use termux -open ssh user@host</string>
+    <string name="help_termux">Run Linux tools through Termux (needs the Termux app)
+        \n\nUsage:
+        \ntermux -setup -> install / allow Termux, step by step
+        \ntermux [command] -> run [command] in Termux and print its output here
+        \ntermux -open [command] -> run [command] in a Termux window (vim, htop, python...)
+        \ntermux -open -> open Termux
+        \n\nCommands that Android doesn\'t have are sent to Termux automatically, e.g. git status
+        \nInstall tools with: termux pkg install -y [package]</string>
+    <string name="help_wol">Wake-on-LAN: turn on a computer of your network
+        \n\nUsage:
+        \nwol [saved server] -> needs its MAC address: ssh -add [name] user@host -mac AA:BB:CC:DD:EE:FF
+        \nwol [mac address] -> e.g. wol AA:BB:CC:DD:EE:FF</string>
+    <string name="help_scan">List the devices that answer on your local network (wifi)
+        \n\nUsage:
+        \nscan</string>
+    <string name="help_ports">Find the open tcp ports of a device
+        \n\nUsage:
+        \nports [host or saved server] -> common ports (ssh, http, smb, proxmox, home assistant...)
+        \nports [host] 1-1024 -> a range
+        \nports [host] 22,80,443 -> a list</string>
+    <string name="help_myip">Show your local IP addresses and your public one (asked to a public what-is-my-IP website)</string>
+    <string name="help_fetch">Show a summary of your phone, neofetch style</string>
+    <string name="help_fx">Visual effects
+        \n\nUsage:
+        \nfx crt on/off -> scanlines and glowing text, like an old monitor
+        \nfx typing on/off -> the output is typed one character at a time
+        \nfx speed [ms] -> milliseconds per character for the typing animation (default 6)
+        \nfx boot on/off -> the BIOS-like boot screen when T-UI starts</string>
+    <string name="help_findout">Highlight a word in the output
+        \n\nUsage:
+        \nfindout [text] -> highlights every [text] and scrolls to the last one
+        \nfindout -> removes the highlights
+        \n\nTip: long press on an output line copies it</string>
+    <string name="help_notif">Notifications inside the terminal
+        \n\nUsage:
+        \nnotif on/off -> show the new notifications here (needs notification access)
+        \nnotif list -> the current notifications
+        \nnotif clear -> dismiss all the notifications that can be dismissed
+        \n\nMore options (filters, colors, format): notifications</string>
 </resources>

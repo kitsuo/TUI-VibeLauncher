@@ -1,5 +1,9 @@
 package ohi.andre.consolelauncher.commands.main.raw;
 
+import ohi.andre.consolelauncher.tuils.BootSequence;
+import ohi.andre.consolelauncher.tuils.BackupManager;
+import ohi.andre.consolelauncher.commands.tuixt.TuixtActivity;
+import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -130,6 +134,55 @@ public class tui extends ParamCommand {
                     return Tuils.getFolder().getAbsolutePath();
                 }
 
+                return null;
+            }
+        },
+        storage {
+            @Override
+            public String exec(ExecutePack pack) {
+                if (Tuils.hasStorageAccess(pack.context)) return pack.context.getString(R.string.output_access_already_granted);
+
+                Tuils.openStorageAccessSettings(pack.context);
+                return null;
+            }
+        },
+        notifaccess {
+            @Override
+            public String exec(ExecutePack pack) {
+                if (Tuils.hasNotificationAccess(pack.context)) return pack.context.getString(R.string.output_access_already_granted);
+
+                Tuils.openNotificationAccessSettings(pack.context);
+                return null;
+            }
+        },
+        backup {
+            @Override
+            public String exec(ExecutePack pack) {
+                return BackupManager.backup(pack.context);
+            }
+        },
+        restore {
+            @Override
+            public String exec(ExecutePack pack) {
+//                the file picker can open Download, the cloud... the result goes to LauncherActivity
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("*/*");
+                intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {"application/zip", "application/x-zip-compressed", "application/octet-stream"});
+                try {
+                    ((Activity) pack.context).startActivityForResult(intent, LauncherActivity.RESTORE_REQUEST);
+                } catch (Exception e) {
+                    return pack.context.getString(R.string.activity_not_found);
+                }
+                return "Choose a t-ui-backup-....zip file (in Download)";
+            }
+        },
+        rc {
+            @Override
+            public String exec(ExecutePack pack) {
+                Intent intent = new Intent(pack.context, TuixtActivity.class);
+                intent.putExtra(TuixtActivity.PATH, BootSequence.rcFile().getAbsolutePath());
+                ((Activity) pack.context).startActivityForResult(intent, LauncherActivity.TUIXT_REQUEST);
                 return null;
             }
         }

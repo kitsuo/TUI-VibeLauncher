@@ -49,6 +49,10 @@ public class share implements CommandAbstraction {
     @Override
     public String onArgNotFound(ExecutePack pack, int index) {
         MainPack info = (MainPack) pack;
+        if (!Tuils.hasStorageAccess(info.context)) {
+            Tuils.requestStorageAccess(info.context);
+            return info.res.getString(R.string.output_storage_access_hint);
+        }
         return info.res.getString(R.string.output_filenotfound);
     }
 

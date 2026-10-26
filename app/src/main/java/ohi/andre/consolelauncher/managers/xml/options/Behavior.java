@@ -1220,6 +1220,22 @@ public enum Behavior implements XMLPrefsSave {
         public String type() {
             return XMLPrefsSave.BOOLEAN;
         }
+    },
+    servers_check_interval {
+        @Override
+        public String defaultValue() {
+            return "60";
+        }
+
+        @Override
+        public String type() {
+            return XMLPrefsSave.INTEGER;
+        }
+
+        @Override
+        public String info() {
+            return "Seconds between two checks of the saved servers";
+        }
     };
 
     @Override

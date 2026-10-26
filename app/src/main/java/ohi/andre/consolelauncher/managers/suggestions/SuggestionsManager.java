@@ -37,6 +37,10 @@ import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.commands.main.Param;
 import ohi.andre.consolelauncher.commands.main.specific.ParamCommand;
 import ohi.andre.consolelauncher.commands.main.specific.PermanentSuggestionCommand;
+import ohi.andre.consolelauncher.commands.main.raw.history;
+import ohi.andre.consolelauncher.managers.HistoryManager;
+import ohi.andre.consolelauncher.managers.HostsManager;
+import ohi.andre.consolelauncher.managers.SshManager;
 import ohi.andre.consolelauncher.managers.AliasManager;
 import ohi.andre.consolelauncher.managers.AppsManager;
 import ohi.andre.consolelauncher.managers.ContactManager;
@@ -357,13 +361,29 @@ public class SuggestionsManager {
     }
 
     public void clickSuggestion(SuggestionsManager.Suggestion suggestion) {
-        boolean execOnClick = suggestion.exec;
+        clickSuggestion(suggestion, true);
+    }
+
+//    Tab: complete with the first suggestion, never launch anything
+    public boolean completeWithFirst() {
+        if(suggestionsView == null || suggestionsView.getChildCount() == 0) return false;
+        Object tag = suggestionsView.getChildAt(0).getTag(R.id.suggestion_id);
+        if(!(tag instanceof SuggestionsManager.Suggestion)) return false;
+        clickSuggestion((SuggestionsManager.Suggestion) tag, false);
+        return true;
+    }
+
+    private void clickSuggestion(SuggestionsManager.Suggestion suggestion, boolean allowExec) {
+        boolean execOnClick = suggestion.exec && allowExec;
 
         String text = suggestion.getText();
         String input = mTerminalAdapter.getInput();
 
         if(suggestion.type == SuggestionsManager.Suggestion.TYPE_PERMANENT) {
             mTerminalAdapter.setInput(input + text);
+        } else if(suggestion.type == SuggestionsManager.Suggestion.TYPE_HISTORY) {
+//            replace the whole "history ..." input with the chosen command, ready to be edited or sent
+            mTerminalAdapter.setInput(text);
         } else {
             boolean addSpace = suggestion.type != SuggestionsManager.Suggestion.TYPE_FILE && suggestion.type != SuggestionsManager.Suggestion.TYPE_COLOR;
 
@@ -561,6 +581,9 @@ public class SuggestionsManager {
     public List<Suggestion> getSuggestions(String beforeLastSpace, String lastWord) {
         List<Suggestion> suggestionList = new ArrayList<>();
 
+//        input goes to the remote server: app/command suggestions make no sense (and must not leak passwords)
+        if (SshManager.isActive()) return suggestionList;
+
         beforeLastSpace  = beforeLastSpace .trim();
         lastWord = lastWord.trim();
 
@@ -597,6 +620,13 @@ public class SuggestionsManager {
                 try {
                     cmd = CommandTuils.parse(beforeLastSpace , pack);
                 } catch (Exception e) {}
+
+                if (cmd != null && cmd.cmd instanceof history) {
+                    return getHistorySuggestions(beforeLastSpace, lastWord);
+                }
+
+                List<Suggestion> own = getOwnCommandSuggestions(beforeLastSpace, lastWord);
+                if (own != null) return own;
 
                 if (cmd != null) {
 
@@ -644,6 +674,13 @@ public class SuggestionsManager {
                     cmd = CommandTuils.parse(beforeLastSpace , pack);
                 } catch (Exception e) {}
 
+                if (cmd != null && cmd.cmd instanceof history) {
+                    return getHistorySuggestions(beforeLastSpace, lastWord);
+                }
+
+                List<Suggestion> own = getOwnCommandSuggestions(beforeLastSpace, lastWord);
+                if (own != null) return own;
+
                 if (cmd != null) {
                     if(cmd.cmd instanceof PermanentSuggestionCommand) {
                         suggestPermanentSuggestions(suggestionList, (PermanentSuggestionCommand) cmd.cmd);
@@ -689,8 +726,81 @@ public class SuggestionsManager {
         return suggestionList;
     }
 
+    private static final int MAX_HISTORY_SUGGESTIONS = 15;
+
+//    "history [text]": suggest the matching past commands, most recent first
+    private List<Suggestion> getHistorySuggestions(String beforeLastSpace, String lastWord) {
+        List<Suggestion> suggestions = new ArrayList<>();
+        if (HistoryManager.instance == null) return suggestions;
+
+        String full = (beforeLastSpace + Tuils.SPACE + lastWord).trim();
+        int space = full.indexOf(' ');
+        String query = space == -1 ? Tuils.EMPTYSTRING : full.substring(space + 1).trim();
+
+        for (String entry : HistoryManager.instance.search(query, MAX_HISTORY_SUGGESTIONS)) {
+            suggestions.add(new Suggestion(null, entry, false, Suggestion.TYPE_HISTORY));
+        }
+        return suggestions;
+    }
+
+    private static final java.util.Set<String> FILE_COMMANDS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "ls", "cd", "mv", "cp", "rm", "cat", "less", "more", "head", "tail", "grep", "find", "du", "chmod", "chown",
+            "touch", "mkdir", "rmdir", "stat", "file", "tar", "unzip", "zip", "gzip", "gunzip", "nano", "vim", "vi",
+            "wc", "sort", "diff", "ln", "md5sum", "sha1sum", "sha256sum", "sh", "bash", "python", "python3", "source", "."));
+
     private boolean needsFileSuggestion(String cmd) {
-        return cmd.equalsIgnoreCase("ls") || cmd.equalsIgnoreCase("cd") || cmd.equalsIgnoreCase("mv") || cmd.equalsIgnoreCase("cp") || cmd.equalsIgnoreCase("rm") || cmd.equalsIgnoreCase("cat");
+//        any path is completed too, whatever the command
+        return FILE_COMMANDS.contains(cmd.toLowerCase()) || cmd.startsWith("/") || cmd.startsWith("./") || cmd.startsWith("../");
+    }
+
+//    options and saved servers for ssh, wol, ports, fx, termux (their arguments are plain text)
+    private List<Suggestion> getOwnCommandSuggestions(String beforeLastSpace, String lastWord) {
+        String[] words = beforeLastSpace.trim().split("\\s+");
+        String command = words[0].toLowerCase();
+        int position = words.length;   // index of the word being typed
+
+        List<String> options = new ArrayList<>();
+        switch (command) {
+            case "ssh":
+                if (position == 1) {
+                    options.addAll(HostsManager.names());
+                    options.addAll(java.util.Arrays.asList("-add", "-ls", "-rm", "-keygen", "-pubkey", "-forget", "-p", "-i"));
+                } else if (position == 2 && words[1].equals("-rm")) {
+                    options.addAll(HostsManager.names());
+                } else if (position == 2 && words[1].equals("-forget")) {
+                    for (HostsManager.Host h : HostsManager.all()) if (!options.contains(h.address)) options.add(h.address);
+                } else if (words[1].equals("-add") && position >= 4) {
+                    options.addAll(java.util.Arrays.asList("-mac", "-p", "-i"));
+                } else return null;
+                break;
+            case "wol":
+                if (position != 1) return null;
+                for (HostsManager.Host h : HostsManager.all()) if (h.mac != null) options.add(h.name);
+                break;
+            case "ports":
+                if (position != 1) return null;
+                options.addAll(HostsManager.names());
+                break;
+            case "fx":
+                if (position == 1) options.addAll(java.util.Arrays.asList("crt", "typing", "speed"));
+                else if (position == 2 && !words[1].equals("speed")) options.addAll(java.util.Arrays.asList("on", "off"));
+                else return null;
+                break;
+            case "termux":
+                if (position != 1) return null;
+                options.addAll(java.util.Arrays.asList("-setup", "-open"));
+                break;
+            default:
+                return null;
+        }
+
+        List<Suggestion> suggestions = new ArrayList<>();
+        for (String o : options) {
+            if (lastWord.length() == 0 || o.toLowerCase().startsWith(lastWord.toLowerCase())) {
+                suggestions.add(new Suggestion(beforeLastSpace.trim(), o, false, Suggestion.TYPE_COMMAND));
+            }
+        }
+        return suggestions;
     }
 
     private void suggestPermanentSuggestions(List<Suggestion> suggestions, PermanentSuggestionCommand cmd) {
@@ -795,7 +905,7 @@ public class SuggestionsManager {
     }
 
     private void suggestThemePresets(List<Suggestion> suggestions, String afterLastSpace, String beforeLastSpace) {
-        String[] presets = {"blue", "red", "green", "pink", "bw", "cyberpunk"};
+        String[] presets = {"blue", "red", "green", "pink", "bw", "cyberpunk", "amber", "matrix", "c64"};
         for (String p : presets) {
             if (afterLastSpace == null || afterLastSpace.length() == 0 || p.startsWith(afterLastSpace)) {
                 suggestions.add(new Suggestion(beforeLastSpace, p, true, Suggestion.TYPE_PERMANENT));
@@ -1300,6 +1410,7 @@ public class SuggestionsManager {
         public static final int TYPE_COLOR = 14;
         public static final int TYPE_PERMANENT = 15;
         public static final int TYPE_CONFIGFILE = 16;
+        public static final int TYPE_HISTORY = 17;
 
         public String text, textBefore;
 

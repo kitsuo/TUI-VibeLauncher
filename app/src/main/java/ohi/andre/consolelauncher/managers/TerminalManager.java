@@ -33,6 +33,7 @@ import ohi.andre.consolelauncher.managers.xml.options.Ui;
 import ohi.andre.consolelauncher.tuils.LongClickMovementMethod;
 import ohi.andre.consolelauncher.tuils.LongClickableSpan;
 import ohi.andre.consolelauncher.tuils.PrivateIOReceiver;
+import ohi.andre.consolelauncher.tuils.ProcessInterrupter;
 import ohi.andre.consolelauncher.tuils.Tuils;
 import ohi.andre.consolelauncher.tuils.interfaces.CommandExecuter;
 
@@ -113,6 +114,12 @@ public class TerminalManager {
             throw new UnsupportedOperationException();
 
         this.mContext = context;
+
+//        up/down arrows start from the persisted history, so it survives restarts
+        if(HistoryManager.instance != null) {
+            List<String> recent = HistoryManager.instance.recent(CMD_LIST_SIZE);
+            for(int i = recent.size() - 1; i >= 0; i--) cmdList.add(recent.get(i));
+        }
         this.executer = executer;
 
         this.mainPack = mainPack;
@@ -123,6 +130,9 @@ public class TerminalManager {
         this.clearAfterMs = XMLPrefsManager.getInt(Behavior.clear_after_seconds) * 1000;
         this.clearAfterCmds = XMLPrefsManager.getInt(Behavior.clear_after_cmds);
         this.maxLines = XMLPrefsManager.getInt(Behavior.max_lines);
+
+        this.typingAnimation = XMLPrefsManager.getBoolean(Ui.typing_animation);
+        this.typingCharsPerFrame = Math.max(1, TYPING_FRAME_MS / Math.max(1, XMLPrefsManager.getInt(Ui.typing_speed)));
 
         inputFormat = XMLPrefsManager.get(Behavior.input_format);
         outputFormat = XMLPrefsManager.get(Behavior.output_format);
@@ -176,6 +186,11 @@ public class TerminalManager {
             deleteView.setColorFilter(toolbarColor, android.graphics.PorterDuff.Mode.SRC_IN);
             deleteView.setBackgroundColor(0);
             deleteView.setOnClickListener(v -> setInput(Tuils.EMPTYSTRING));
+//            long press: Ctrl+C, stops the running command (ping, top...) or is sent to the ssh server
+            deleteView.setOnLongClickListener(v -> {
+                sendCtrlC();
+                return true;
+            });
         }
 
         this.mTerminalView = terminalView;
@@ -272,6 +287,19 @@ public class TerminalManager {
 
             return true;
         });
+//        Ctrl+C on a physical keyboard, unless some text is selected (then it copies as usual)
+        this.mInputView.setOnKeyListener((v1, keyCode, event) -> {
+            if(keyCode == KeyEvent.KEYCODE_TAB && onTab != null) {
+                if(event.getAction() == KeyEvent.ACTION_DOWN) onTab.run();
+                return true;
+            }
+            if(keyCode == KeyEvent.KEYCODE_C && event.isCtrlPressed() && event.getAction() == KeyEvent.ACTION_DOWN
+                    && mInputView.getSelectionStart() == mInputView.getSelectionEnd()) {
+                sendCtrlC();
+                return true;
+            }
+            return false;
+        });
 //        if(autoLowerFirstChar) {
 //            this.mInputView.setFilters(new InputFilter[] {new InputFilter() {
 //                @Override
@@ -284,6 +312,59 @@ public class TerminalManager {
 //                }
 //            }});
 //        }
+    }
+
+    private final List<Object> highlights = new ArrayList<>();
+
+//    findout [word]: highlights the word in the output, scrolls to the last one. No word: removes the highlights
+    public void highlight(final String word) {
+        mTerminalView.post(() -> {
+            CharSequence text = mTerminalView.getText();
+            if(!(text instanceof Spannable)) return;
+            Spannable spannable = (Spannable) text;
+
+            for(Object span : highlights) spannable.removeSpan(span);
+            highlights.clear();
+            if(word == null || word.length() == 0) return;
+
+//            don't count the "findout ..." line just typed
+            String content = text.toString().toLowerCase();
+            String needle = word.toLowerCase();
+            int limit = content.lastIndexOf("findout");
+            if(limit == -1) limit = content.length();
+            else limit = content.lastIndexOf('\n', limit) + 1;
+
+            int last = -1, count = 0;
+            for(int i = content.indexOf(needle); i != -1 && i < limit; i = content.indexOf(needle, i + needle.length())) {
+                Object bg = new android.text.style.BackgroundColorSpan(0xCCFFD54F);
+                Object fg = new ForegroundColorSpan(Color.BLACK);
+                spannable.setSpan(bg, i, i + needle.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                spannable.setSpan(fg, i, i + needle.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                highlights.add(bg);
+                highlights.add(fg);
+                last = i;
+                count++;
+            }
+
+            Tuils.sendOutput(mContext, count == 0 ? "No match for " + word : count + (count == 1 ? " match" : " matches") + " (findout to clear)", CATEGORY_OUTPUT);
+
+            if(last != -1 && mTerminalView.getLayout() != null) {
+                final int y = mTerminalView.getLayout().getLineTop(mTerminalView.getLayout().getLineForOffset(last));
+                mScrollView.removeCallbacks(mScrollRunnable);
+                mScrollView.postDelayed(() -> mScrollView.smoothScrollTo(0, Math.max(0, mTerminalView.getTop() + y - mScrollView.getHeight() / 3)), 400);
+            }
+        });
+    }
+
+    private Runnable onTab;
+
+    public void setOnTab(Runnable onTab) {
+        this.onTab = onTab;
+    }
+
+    private void sendCtrlC() {
+        writeToView("^C", CATEGORY_INPUT);
+        executer.execute(ProcessInterrupter.CTRL_C, null);
     }
 
     private void setupNewInput() {
@@ -312,6 +393,13 @@ public class TerminalManager {
 //            an error will probably be thrown everytime, but we don't need to track it
         }
 
+//        passwords typed for ssh are never shown, nor kept in the history
+        if(secretInput) {
+            executer.execute(input.toString(), null);
+            setupNewInput();
+            return true;
+        }
+
         if(input.length() > 0) {
             clearCmdsCount++;
             if(clearCmdsCount != 0 && clearAfterCmds > 0 && clearCmdsCount % clearAfterCmds == 0) clear();
@@ -323,6 +411,8 @@ public class TerminalManager {
             }
             cmdList.add(cmdList.size(), cmd);
             howBack = -1;
+
+            if(HistoryManager.instance != null) HistoryManager.instance.add(cmd);
         }
 
 //        DO NOT USE THE INTENT APPROACH
@@ -409,15 +499,86 @@ public class TerminalManager {
     private void writeToView(CharSequence text, int type) {
         text = getFinalText(text, type);
         text = TextUtils.concat(Tuils.NEWLINE, text);
-        writeToView(text);
+        writeToView(text, type == CATEGORY_INPUT);
     }
 
     private void writeToView(final CharSequence text) {
-        mTerminalView.post(() -> {
-            mTerminalView.append(text);
-            scrollToEnd();
-        });
+        writeToView(text, false);
     }
+
+    private void writeToView(final CharSequence text, boolean instant) {
+        if(!typingAnimation) {
+            mTerminalView.post(() -> {
+                mTerminalView.append(text);
+                scrollToEnd();
+            });
+            return;
+        }
+
+//        typing animation: everything goes through one queue, so the order is kept
+        synchronized (typingQueue) {
+            typingQueue.add(new Object[] {text, instant});
+            typingPending += text.length();
+        }
+        mTerminalView.post(typingRunnable);
+    }
+
+//    a span object can be attached only once: appending pieces of the same text would move the color
+//    from one piece to the next, so every piece gets its own copy of the styles
+    private static CharSequence typingChunk(CharSequence text, int start, int end) {
+        CharSequence piece = text.subSequence(start, end);
+        if(start == 0 && end == text.length() || !(piece instanceof Spanned)) return piece;
+
+        Spanned spanned = (Spanned) piece;
+        SpannableString copy = new SpannableString(piece.toString());
+        for(Object span : spanned.getSpans(0, piece.length(), Object.class)) {
+            Object style = span instanceof android.text.style.CharacterStyle && !(span instanceof android.text.style.ClickableSpan)
+                    ? android.text.style.CharacterStyle.wrap((android.text.style.CharacterStyle) span) : span;
+            copy.setSpan(style, spanned.getSpanStart(span), spanned.getSpanEnd(span), spanned.getSpanFlags(span));
+        }
+        return copy;
+    }
+
+    private static final int TYPING_FRAME_MS = 16;
+//    when this much text is waiting (ping, logs...), it's shown at once instead of typed
+    private static final int TYPING_MAX_PENDING = 1500;
+
+    private boolean typingAnimation;
+    private int typingCharsPerFrame;
+    private final java.util.LinkedList<Object[]> typingQueue = new java.util.LinkedList<>();
+    private int typingPending, typingPosition;
+
+    private final Runnable typingRunnable = new Runnable() {
+        @Override
+        public void run() {
+            mTerminalView.removeCallbacks(this);
+
+            Object[] head;
+            boolean flush;
+            synchronized (typingQueue) {
+                head = typingQueue.peek();
+                flush = typingPending > TYPING_MAX_PENDING;
+            }
+            if(head == null) return;
+
+            CharSequence text = (CharSequence) head[0];
+            int end = flush || (Boolean) head[1] ? text.length() : Math.min(text.length(), typingPosition + typingCharsPerFrame);
+
+            mTerminalView.append(typingChunk(text, typingPosition, end));
+            synchronized (typingQueue) {
+                typingPending -= end - typingPosition;
+                if(end >= text.length()) {
+                    typingQueue.poll();
+                    typingPosition = 0;
+                } else {
+                    typingPosition = end;
+                }
+            }
+            scrollToEnd();
+
+            mTerminalView.postDelayed(this, flush ? 0 : TYPING_FRAME_MS);
+        }
+    };
 
     private CharSequence getFinalText(CharSequence t, int type) {
         CharSequence s;
@@ -517,6 +678,11 @@ public class TerminalManager {
     }
 
     public void clear() {
+        synchronized (typingQueue) {
+            typingQueue.clear();
+            typingPending = 0;
+            typingPosition = 0;
+        }
         mTerminalView.post(() -> mTerminalView.setText(Tuils.EMPTYSTRING));
         cmdList.clear();
         clearCmdsCount = 0;
@@ -526,6 +692,29 @@ public class TerminalManager {
         ((Activity) mContext).runOnUiThread(() -> {
             suMode = true;
             mPrefix.setText(suPrefix.endsWith(Tuils.SPACE) ? suPrefix : suPrefix + Tuils.SPACE);
+        });
+    }
+
+    private boolean secretInput = false;
+    private int normalInputType = -1;
+
+    public void setSecretInput(boolean secret) {
+        ((Activity) mContext).runOnUiThread(() -> {
+            if(normalInputType == -1) normalInputType = mInputView.getInputType();
+
+            secretInput = secret;
+            mInputView.setInputType(secret
+                    ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    : normalInputType);
+            focusInputEnd();
+        });
+    }
+
+//    null restores the normal prefix
+    public void setRemotePrefix(String remotePrefix) {
+        ((Activity) mContext).runOnUiThread(() -> {
+            String p = remotePrefix != null ? remotePrefix : (suMode ? suPrefix : prefix);
+            mPrefix.setText(p.endsWith(Tuils.SPACE) ? p : p + Tuils.SPACE);
         });
     }
 

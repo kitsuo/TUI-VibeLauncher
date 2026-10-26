@@ -209,7 +209,7 @@ public class SuggestionRunnable implements Runnable {
                     return new ColorDrawable(suggAppBg);
                 case SuggestionsManager.Suggestion.TYPE_ALIAS:
                     return new ColorDrawable(suggAliasBg);
-                case SuggestionsManager.Suggestion.TYPE_COMMAND:
+                case SuggestionsManager.Suggestion.TYPE_COMMAND: case SuggestionsManager.Suggestion.TYPE_HISTORY:
                     return new ColorDrawable(suggCmdBg);
                 case SuggestionsManager.Suggestion.TYPE_CONTACT:
                     return new ColorDrawable(suggContactBg);
@@ -233,7 +233,7 @@ public class SuggestionRunnable implements Runnable {
             case SuggestionsManager.Suggestion.TYPE_ALIAS:
                 chosen = suggAliasText;
                 break;
-            case SuggestionsManager.Suggestion.TYPE_COMMAND:
+            case SuggestionsManager.Suggestion.TYPE_COMMAND: case SuggestionsManager.Suggestion.TYPE_HISTORY:
                 chosen = suggCmdText;
                 break;
             case SuggestionsManager.Suggestion.TYPE_CONTACT:

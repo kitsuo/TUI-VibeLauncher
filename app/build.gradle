@@ -2,13 +2,17 @@ apply plugin: 'com.android.application'
 
 android {
     namespace "ohi.andre.consolelauncher"
-    compileSdk 34
+    compileSdk 35
 
     def keystorePropertiesFile = rootProject.file("local.properties")
     def keystoreProperties = new Properties()
     if (keystorePropertiesFile.exists()) {
         keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
     }
+
+    // Only sign with the release keystore when it actually exists, so a fresh clone can still build
+    def releaseKeystore = file("../" + (keystoreProperties["storeFile"] ?: "release.jks"))
+    def hasReleaseKeystore = releaseKeystore.exists()
 
     signingConfigs {
         release {
@@ -22,9 +26,9 @@ android {
     defaultConfig {
         applicationId "ohi.andre.consolelauncher"
         minSdk 21
-        targetSdk 34
-        versionCode 301
-        versionName "v6.15.1-updated-v2"
+        targetSdk 35
+        versionCode 303
+        versionName "v6.15.1-updated-v4"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -35,13 +39,13 @@ android {
 
     buildTypes {
         debug {
-            signingConfig signingConfigs.release
+            if (hasReleaseKeystore) signingConfig signingConfigs.release
         }
         release {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
         }
     }
 
@@ -56,12 +60,19 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     lint {
         checkReleaseBuilds false
+    }
+
+    packaging {
+        resources {
+            // multi-release classes of jsch / bouncy castle target newer desktop JVMs and are never used on Android
+            excludes += ['META-INF/versions/**']
+        }
     }
 }
 
@@ -75,4 +86,8 @@ dependencies {
     implementation 'com.jayway.jsonpath:json-path:2.9.0'
     implementation 'org.jsoup:jsoup:1.17.2'
     implementation 'it.andreuzzi:CompareString2:1.0.9'
+
+    // ssh client (pure Java) + Bouncy Castle for ed25519 / curve25519, which Android's crypto provider lacks
+    implementation 'com.github.mwiede:jsch:2.28.8'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.86'
 }

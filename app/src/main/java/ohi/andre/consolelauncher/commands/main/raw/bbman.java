@@ -14,19 +14,10 @@ public class bbman extends ParamCommand {
         install {
             @Override
             public String exec(ExecutePack pack) {
-                Tuils.sendOutput(Color.YELLOW, pack.context, "Downloading and verifying BusyBox...");
-                BusyBoxInstaller.install(pack.context, new BusyBoxInstaller.InstallationCallback() {
-                    @Override
-                    public void onSuccess() {
-                        Tuils.sendOutput(Color.GREEN, pack.context, "BusyBox installed successfully!");
-                    }
-
-                    @Override
-                    public void onError(String error) {
-                        Tuils.sendOutput(Color.RED, pack.context, "Installation failed: " + error);
-                    }
-                });
-                return null;
+//                Android 10+ refuses to execute files downloaded into the app's data folder (W^X), so BusyBox can't run anymore
+                return "BusyBox can't run on Android 10 and newer: apps are not allowed to execute downloaded programs."
+                        + Tuils.NEWLINE + "Android's own commands (ls, cat, grep, ping, ps, ip...) work directly."
+                        + Tuils.NEWLINE + "For other Linux tools, install Termux: termux -setup";
             }
         },
         remove {

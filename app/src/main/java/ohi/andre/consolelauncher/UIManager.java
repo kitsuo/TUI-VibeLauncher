@@ -61,6 +61,8 @@ import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.commands.main.specific.RedirectCommand;
 import ohi.andre.consolelauncher.managers.HTMLExtractManager;
 import ohi.andre.consolelauncher.managers.NotesManager;
+import ohi.andre.consolelauncher.managers.HostsManager;
+import ohi.andre.consolelauncher.managers.ServersStatus;
 import ohi.andre.consolelauncher.managers.TerminalManager;
 import ohi.andre.consolelauncher.managers.TimeManager;
 import ohi.andre.consolelauncher.managers.TuiLocationManager;
@@ -76,6 +78,7 @@ import ohi.andre.consolelauncher.tuils.AllowEqualsSequence;
 import ohi.andre.consolelauncher.tuils.NetworkUtils;
 import ohi.andre.consolelauncher.tuils.OutlineEditText;
 import ohi.andre.consolelauncher.tuils.OutlineTextView;
+import ohi.andre.consolelauncher.tuils.CrtEffect;
 import ohi.andre.consolelauncher.tuils.Tuils;
 import ohi.andre.consolelauncher.tuils.interfaces.CommandExecuter;
 import ohi.andre.consolelauncher.tuils.interfaces.OnBatteryUpdate;
@@ -90,6 +93,12 @@ public class UIManager implements OnTouchListener {
     public static String ACTION_ROOT = BuildConfig.APPLICATION_ID + ".ui_root";
     public static String ACTION_NOROOT = BuildConfig.APPLICATION_ID + ".ui_noroot";
     public static String ACTION_LOGTOFILE = BuildConfig.APPLICATION_ID + ".ui_log";
+    public static String ACTION_SSH_STATE = BuildConfig.APPLICATION_ID + ".ui_ssh_state";
+    public static String ACTION_SERVERS_CHANGED = BuildConfig.APPLICATION_ID + ".ui_servers_changed";
+    public static String ACTION_FIND_OUTPUT = BuildConfig.APPLICATION_ID + ".ui_find_output";
+    public static String FIND_TEXT = "find_text";
+    public static String SSH_PREFIX = "ssh_prefix";
+    public static String SSH_SECRET = "ssh_secret";
     public static String ACTION_CLEAR = BuildConfig.APPLICATION_ID + "ui_clear";
     public static String ACTION_WEATHER = BuildConfig.APPLICATION_ID + "ui_weather";
     public static String ACTION_WEATHER_GOT_LOCATION = BuildConfig.APPLICATION_ID + "ui_weather_location";
@@ -108,7 +117,8 @@ public class UIManager implements OnTouchListener {
         network,
         notes,
         weather,
-        unlock
+        unlock,
+        servers
     }
 
     private final int RAM_DELAY = 3000;
@@ -635,6 +645,29 @@ public class UIManager implements OnTouchListener {
     private boolean fixedLocation = false;
 
     private boolean weatherPerformedStartupRun = false;
+    private ServersRunnable serversRunnable;
+    private class ServersRunnable implements Runnable {
+
+        int upColor = XMLPrefsManager.getColor(Theme.servers_up_color);
+        int downColor = XMLPrefsManager.getColor(Theme.servers_down_color);
+        int delay = Math.max(10, XMLPrefsManager.getInt(Behavior.servers_check_interval)) * 1000;
+
+        @Override
+        public void run() {
+            new Thread(() -> {
+                List<HostsManager.Host> hosts = HostsManager.all();
+                final CharSequence text = hosts.isEmpty() ? null :
+                        Tuils.span(mContext, ServersStatus.format(ServersStatus.check(hosts), upColor, downColor), Integer.MAX_VALUE, labelSizes[Label.servers.ordinal()]);
+
+                Handler h = handler;
+                if(h == null) return;
+                h.post(() -> updateText(Label.servers, text));
+                h.removeCallbacks(serversRunnable);
+                h.postDelayed(serversRunnable, delay);
+            }).start();
+        }
+    }
+
     private WeatherRunnable weatherRunnable;
     private int weatherColor;
     boolean showWeatherUpdate;
@@ -752,6 +785,7 @@ public class UIManager implements OnTouchListener {
             }
         }
 
+        if(labelViews[base] == null) return;
         if(sequence.length() == 0) labelViews[base].setVisibility(View.GONE);
         else {
             labelViews[base].setVisibility(View.VISIBLE);
@@ -781,6 +815,9 @@ public class UIManager implements OnTouchListener {
         filter.addAction(ACTION_NOROOT);
 //        filter.addAction(ACTION_CLEAR_SUGGESTIONS);
         filter.addAction(ACTION_LOGTOFILE);
+        filter.addAction(ACTION_SSH_STATE);
+        filter.addAction(ACTION_SERVERS_CHANGED);
+        filter.addAction(ACTION_FIND_OUTPUT);
         filter.addAction(ACTION_CLEAR);
         filter.addAction(ACTION_WEATHER);
         filter.addAction(ACTION_WEATHER_GOT_LOCATION);
@@ -800,6 +837,16 @@ public class UIManager implements OnTouchListener {
                     mTerminalAdapter.onRoot();
                 } else if(action.equals(ACTION_NOROOT)) {
                     mTerminalAdapter.onStandard();
+                } else if(action.equals(ACTION_FIND_OUTPUT)) {
+                    mTerminalAdapter.highlight(intent.getStringExtra(FIND_TEXT));
+                } else if(action.equals(ACTION_SERVERS_CHANGED)) {
+                    if(serversRunnable != null && handler != null) {
+                        handler.removeCallbacks(serversRunnable);
+                        handler.post(serversRunnable);
+                    }
+                } else if(action.equals(ACTION_SSH_STATE)) {
+                    mTerminalAdapter.setRemotePrefix(intent.getStringExtra(SSH_PREFIX));
+                    mTerminalAdapter.setSecretInput(intent.getBooleanExtra(SSH_SECRET, false));
 //                } else if(action.equals(ACTION_CLEAR_SUGGESTIONS)) {
 //                    if(suggestionsManager != null) suggestionsManager.clear();
                 } else if(action.equals(ACTION_LOGTOFILE)) {
@@ -1001,6 +1048,7 @@ public class UIManager implements OnTouchListener {
         labelSizes[Label.device.ordinal()] = XMLPrefsManager.getInt(Ui.device_size);
         labelSizes[Label.weather.ordinal()] = XMLPrefsManager.getInt(Ui.weather_size);
         labelSizes[Label.unlock.ordinal()] = XMLPrefsManager.getInt(Ui.unlock_size);
+        labelSizes[Label.servers.ordinal()] = XMLPrefsManager.getInt(Ui.servers_size);
 
         labelViews = new TextView[] {
                 (TextView) rootView.findViewById(R.id.tv0),
@@ -1012,6 +1060,7 @@ public class UIManager implements OnTouchListener {
                 (TextView) rootView.findViewById(R.id.tv6),
                 (TextView) rootView.findViewById(R.id.tv7),
                 (TextView) rootView.findViewById(R.id.tv8),
+                (TextView) rootView.findViewById(R.id.tv9),
         };
 
         boolean[] show = new boolean[Label.values().length];
@@ -1024,6 +1073,7 @@ public class UIManager implements OnTouchListener {
         show[Label.storage.ordinal()] = XMLPrefsManager.getBoolean(Ui.show_storage_info);
         show[Label.weather.ordinal()] = XMLPrefsManager.getBoolean(Ui.show_weather);
         show[Label.unlock.ordinal()] = XMLPrefsManager.getBoolean(Ui.show_unlock_counter);
+        show[Label.servers.ordinal()] = XMLPrefsManager.getBoolean(Ui.show_servers);
 
         float[] indexes = new float[Label.values().length];
         indexes[Label.notes.ordinal()] = show[Label.notes.ordinal()] ? XMLPrefsManager.getFloat(Ui.notes_index) : Integer.MAX_VALUE;
@@ -1035,10 +1085,13 @@ public class UIManager implements OnTouchListener {
         indexes[Label.storage.ordinal()] = show[Label.storage.ordinal()] ? XMLPrefsManager.getFloat(Ui.storage_index) : Integer.MAX_VALUE;
         indexes[Label.weather.ordinal()] = show[Label.weather.ordinal()] ? XMLPrefsManager.getFloat(Ui.weather_index) : Integer.MAX_VALUE;
         indexes[Label.unlock.ordinal()] = show[Label.unlock.ordinal()] ? XMLPrefsManager.getFloat(Ui.unlock_index) : Integer.MAX_VALUE;
+        indexes[Label.servers.ordinal()] = show[Label.servers.ordinal()] ? XMLPrefsManager.getFloat(Ui.servers_index) : Integer.MAX_VALUE;
 
-        int[] statusLineAlignments = getListOfIntValues(XMLPrefsManager.get(Ui.status_lines_alignment), 9, -1);
+        final int LINES = Label.values().length;
 
-        String[] statusLinesBgRectColors = getListOfStringValues(XMLPrefsManager.get(Theme.status_lines_bgrectcolor), 9, "#ff000000");
+        int[] statusLineAlignments = getListOfIntValues(XMLPrefsManager.get(Ui.status_lines_alignment), LINES, -1);
+
+        String[] statusLinesBgRectColors = getListOfStringValues(XMLPrefsManager.get(Theme.status_lines_bgrectcolor), LINES, "#ff000000");
         String[] otherBgRectColors = {
                 XMLPrefsManager.get(Theme.input_bgrectcolor),
                 XMLPrefsManager.get(Theme.output_bgrectcolor),
@@ -1049,7 +1102,7 @@ public class UIManager implements OnTouchListener {
         System.arraycopy(statusLinesBgRectColors, 0, bgRectColors, 0, statusLinesBgRectColors.length);
         System.arraycopy(otherBgRectColors, 0, bgRectColors, statusLinesBgRectColors.length, otherBgRectColors.length);
 
-        String[] statusLineBgColors = getListOfStringValues(XMLPrefsManager.get(Theme.status_lines_bg), 9, "#00000000");
+        String[] statusLineBgColors = getListOfStringValues(XMLPrefsManager.get(Theme.status_lines_bg), LINES, "#00000000");
         String[] otherBgColors = {
                 XMLPrefsManager.get(Theme.input_bg),
                 XMLPrefsManager.get(Theme.output_bg),
@@ -1060,14 +1113,14 @@ public class UIManager implements OnTouchListener {
         System.arraycopy(statusLineBgColors, 0, bgColors, 0, statusLineBgColors.length);
         System.arraycopy(otherBgColors, 0, bgColors, statusLineBgColors.length, otherBgColors.length);
 
-        String[] statusLineOutlineColors = getListOfStringValues(XMLPrefsManager.get(Theme.status_lines_shadow_color), 9, "#00000000");
+        String[] statusLineOutlineColors = getListOfStringValues(XMLPrefsManager.get(Theme.status_lines_shadow_color), LINES, "#00000000");
         String[] otherOutlineColors = {
                 XMLPrefsManager.get(Theme.input_shadow_color),
                 XMLPrefsManager.get(Theme.output_shadow_color),
         };
         String[] outlineColors = new String[statusLineOutlineColors.length + otherOutlineColors.length];
         System.arraycopy(statusLineOutlineColors, 0, outlineColors, 0, statusLineOutlineColors.length);
-        System.arraycopy(otherOutlineColors, 0, outlineColors, 9, otherOutlineColors.length);
+        System.arraycopy(otherOutlineColors, 0, outlineColors, LINES, otherOutlineColors.length);
 
         int shadowXOffset, shadowYOffset;
         float shadowRadius;
@@ -1076,10 +1129,10 @@ public class UIManager implements OnTouchListener {
         shadowYOffset = Integer.parseInt(shadowParams[1]);
         shadowRadius = Float.parseFloat(shadowParams[2]);
 
-        final int INPUT_BGCOLOR_INDEX = 9;
-        final int OUTPUT_BGCOLOR_INDEX = 10;
-        final int SUGGESTIONS_BGCOLOR_INDEX = 11;
-        final int TOOLBAR_BGCOLOR_INDEX = 12;
+        final int INPUT_BGCOLOR_INDEX = LINES;
+        final int OUTPUT_BGCOLOR_INDEX = LINES + 1;
+        final int SUGGESTIONS_BGCOLOR_INDEX = LINES + 2;
+        final int TOOLBAR_BGCOLOR_INDEX = LINES + 3;
 
         int strokeWidth, cornerRadius;
         String[] rectParams = getListOfStringValues(XMLPrefsManager.get(Ui.bgrect_params), 2, "0");
@@ -1238,6 +1291,11 @@ public class UIManager implements OnTouchListener {
             showWeatherUpdate = XMLPrefsManager.getBoolean(Behavior.show_weather_updates);
         }
 
+        if(show[Label.servers.ordinal()]) {
+            serversRunnable = new ServersRunnable();
+            handler.post(serversRunnable);
+        }
+
         if(show[Label.unlock.ordinal()]) {
             unlockTimes = preferences.getInt(UNLOCK_KEY, 0);
 
@@ -1348,6 +1406,15 @@ public class UIManager implements OnTouchListener {
 
         mTerminalAdapter = new TerminalManager(terminalView, inputView, prefixView, submitView, backView, nextView, deleteView, pasteView, context, mainPack, executer);
 
+        if(XMLPrefsManager.getBoolean(Ui.crt_effect)) {
+            CrtEffect.apply(rootView);
+            int outputColor = XMLPrefsManager.getColor(Theme.output_color), inputColor = XMLPrefsManager.getColor(Theme.input_color);
+            CrtEffect.glow(terminalView, outputColor);
+            CrtEffect.glow(inputView, inputColor);
+            CrtEffect.glow(prefixView, inputColor);
+            for(TextView label : labelViews) CrtEffect.glow(label, XMLPrefsManager.getColor(Theme.device_color));
+        }
+
         if (XMLPrefsManager.getBoolean(Suggestions.show_suggestions)) {
             HorizontalScrollView sv = (HorizontalScrollView) rootView.findViewById(R.id.suggestions_container);
             sv.setFocusable(false);
@@ -1370,6 +1437,20 @@ public class UIManager implements OnTouchListener {
             }));
         } else {
             rootView.findViewById(R.id.suggestions_group).setVisibility(View.GONE);
+        }
+
+//        Tab (toolbar button or physical key): complete with the first suggestion
+        Runnable tab = () -> {
+            if(suggestionsManager != null) suggestionsManager.completeWithFirst();
+        };
+        mTerminalAdapter.setOnTab(tab);
+        if(showToolbar) {
+            ImageButton tabView = (ImageButton) inputOutputView.findViewById(R.id.tab_view);
+            if(tabView != null) {
+                tabView.setColorFilter(XMLPrefsManager.getColor(Theme.toolbar_color), android.graphics.PorterDuff.Mode.SRC_IN);
+                tabView.setBackgroundColor(0);
+                tabView.setOnClickListener(v -> tab.run());
+            }
         }
 
         int drawTimes = XMLPrefsManager.getInt(Ui.text_redraw_times);

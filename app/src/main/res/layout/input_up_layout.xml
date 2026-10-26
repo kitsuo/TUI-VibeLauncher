@@ -90,6 +90,10 @@
             style="@style/ToolsBar"
             android:src="@drawable/ic_paste"/>
 
+        <ImageButton android:id="@+id/tab_view"
+            style="@style/ToolsBar"
+            android:src="@drawable/ic_tab"/>
+
     </LinearLayout>
 
     <ScrollView

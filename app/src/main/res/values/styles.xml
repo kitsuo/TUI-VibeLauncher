@@ -1,6 +1,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
 
     <style name="Custom.Solid" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Light parent theme paints a white window; bg_color defaults to transparent, so keep it black -->
+        <item name="android:windowBackground">@android:color/black</item>
         <item name="android:textColorHint">@color/hint_color</item>
         <item name="android:statusBarColor">@android:color/black</item>
         <item name="android:navigationBarColor">@android:color/black</item>

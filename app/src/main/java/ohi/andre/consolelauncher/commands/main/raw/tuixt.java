@@ -61,6 +61,11 @@ public class tuixt implements CommandAbstraction {
             return onNotArgEnough(info, info.args.length);
         }
 
+        if (!Tuils.hasStorageAccess(info.context)) {
+            Tuils.requestStorageAccess(info.context);
+            return info.res.getString(R.string.output_storage_access_hint);
+        }
+
         FileManager.DirInfo dirInfo = FileManager.cd(info.currentDirectory, path);
 
         File file = new File(dirInfo.getCompletePath());

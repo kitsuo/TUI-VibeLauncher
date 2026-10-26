@@ -1,6 +1,7 @@
 package ohi.andre.consolelauncher.tuils;
 
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityManager.MemoryInfo;
 import android.app.admin.DevicePolicyManager;
@@ -30,6 +31,8 @@ import android.os.Parcelable;
 import android.os.Process;
 import android.os.StatFs;
 import android.provider.Settings;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.telephony.TelephonyManager;
@@ -48,6 +51,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.w3c.dom.Node;
 import org.xml.sax.SAXParseException;
@@ -91,6 +95,7 @@ import javax.xml.transform.stream.StreamResult;
 
 import dalvik.system.DexFile;
 import ohi.andre.consolelauncher.BuildConfig;
+import ohi.andre.consolelauncher.LauncherActivity;
 import ohi.andre.consolelauncher.R;
 import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.managers.TerminalManager;
@@ -372,6 +377,54 @@ public class Tuils {
     public static float dpToPx(Context context, float valueInDp) {
         DisplayMetrics metrics = context.getResources().getDisplayMetrics();
         return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, valueInDp, metrics);
+    }
+
+    public static void openNotificationAccessSettings(Context context) {
+        Intent i = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (i.resolveActivity(context.getPackageManager()) == null) {
+            Toast.makeText(context, R.string.no_notification_access, Toast.LENGTH_LONG).show();
+        } else {
+            context.startActivity(i);
+        }
+    }
+
+    public static boolean hasStorageAccess(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return android.os.Environment.isExternalStorageManager();
+        }
+        return ContextCompat.checkSelfPermission(context, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public static void openStorageAccessSettings(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:" + context.getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                context.startActivity(intent);
+            } catch (Exception e) {
+                context.startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            }
+        } else if (context instanceof Activity) {
+            ActivityCompat.requestPermissions((Activity) context,
+                    new String[] {android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    LauncherActivity.COMMAND_REQUEST_PERMISSION);
+        }
+    }
+
+    private static boolean storageAccessAsked = false;
+
+//    called when a command touches shared storage: opens the settings page once per session, then only prints a hint
+    public static void requestStorageAccess(Context context) {
+        if (hasStorageAccess(context)) return;
+
+        if (!storageAccessAsked) {
+            storageAccessAsked = true;
+            openStorageAccessSettings(context);
+        } else {
+            sendOutput(context, context.getString(R.string.output_storage_access_hint));
+        }
     }
 
     public static boolean hasNotificationAccess(Context context) {
@@ -828,7 +881,31 @@ public class Tuils {
         sendOutput(Integer.MAX_VALUE, context, s, type);
     }
 
+//    while a command is piped (scan | grep x) its output is collected here instead of being shown
+    private static final ThreadLocal<StringBuilder> capture = new ThreadLocal<>();
+
+    public static void startCapture() {
+        capture.set(new StringBuilder());
+    }
+
+    public static String stopCapture() {
+        StringBuilder b = capture.get();
+        capture.remove();
+        return b == null ? EMPTYSTRING : b.toString();
+    }
+
+    private static boolean captured(CharSequence s) {
+        StringBuilder b = capture.get();
+        if(b == null) return false;
+        if(s != null) {
+            if(b.length() > 0) b.append(NEWLINE);
+            b.append(s);
+        }
+        return true;
+    }
+
     public static void sendOutput(int color, Context context, CharSequence s, int type) {
+        if(captured(s)) return;
         Intent intent = new Intent(PrivateIOReceiver.ACTION_OUTPUT);
         intent.putExtra(PrivateIOReceiver.TEXT, s);
         intent.putExtra(PrivateIOReceiver.COLOR, color);
@@ -845,6 +922,7 @@ public class Tuils {
     }
 
     public static void sendOutput(int color, Context context, CharSequence s, int type, Object action) {
+        if(captured(s)) return;
         Intent intent = new Intent(PrivateIOReceiver.ACTION_OUTPUT);
         intent.putExtra(PrivateIOReceiver.TEXT, s);
         intent.putExtra(PrivateIOReceiver.COLOR, color);
@@ -861,6 +939,7 @@ public class Tuils {
     }
 
     public static void sendOutput(int color, Context context, CharSequence s, int type, Object action, Object longAction) {
+        if(captured(s)) return;
         Intent intent = new Intent(PrivateIOReceiver.ACTION_OUTPUT);
         intent.putExtra(PrivateIOReceiver.TEXT, s);
         intent.putExtra(PrivateIOReceiver.COLOR, color);
@@ -1576,6 +1655,14 @@ public class Tuils {
     public static int pendingIntentFlags(int flags) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             return flags | android.app.PendingIntent.FLAG_IMMUTABLE;
+        }
+        return flags;
+    }
+
+    // RemoteInput needs a mutable PendingIntent, otherwise the system can't attach the typed text (API 31+)
+    public static int mutablePendingIntentFlags(int flags) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            return flags | android.app.PendingIntent.FLAG_MUTABLE;
         }
         return flags;
     }

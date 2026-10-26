@@ -971,6 +971,118 @@ public enum Ui implements XMLPrefsSave {
         public String info() {
             return "[horizontal_margin],[vertical_margin],[horizontal_padding],[vertical_padding]";
         }
+    },
+    show_servers {
+        @Override
+        public String defaultValue() {
+            return "true";
+        }
+
+        @Override
+        public String type() {
+            return XMLPrefsSave.BOOLEAN;
+        }
+
+        @Override
+        public String info() {
+            return "If true, the saved servers (ssh -add) are shown with their status";
+        }
+    },
+    servers_index {
+        @Override
+        public String defaultValue() {
+            return "9";
+        }
+
+        @Override
+        public String type() {
+            return XMLPrefsSave.INTEGER;
+        }
+
+        @Override
+        public String info() {
+            return "The position of the servers status line";
+        }
+    },
+    servers_size {
+        @Override
+        public String defaultValue() {
+            return "13";
+        }
+
+        @Override
+        public String type() {
+            return XMLPrefsSave.INTEGER;
+        }
+
+        @Override
+        public String info() {
+            return "The text size of the servers status line";
+        }
+    },
+    crt_effect {
+        @Override
+        public String defaultValue() {
+            return "false";
+        }
+
+        @Override
+        public String type() {
+            return XMLPrefsSave.BOOLEAN;
+        }
+
+        @Override
+        public String info() {
+            return "If true, adds scanlines and a glow to the screen, like an old CRT monitor";
+        }
+    },
+    typing_animation {
+        @Override
+        public String defaultValue() {
+            return "false";
+        }
+
+        @Override
+        public String type() {
+            return XMLPrefsSave.BOOLEAN;
+        }
+
+        @Override
+        public String info() {
+            return "If true, the output is typed one character at a time";
+        }
+    },
+    typing_speed {
+        @Override
+        public String defaultValue() {
+            return "6";
+        }
+
+        @Override
+        public String type() {
+            return XMLPrefsSave.INTEGER;
+        }
+
+        @Override
+        public String info() {
+            return "Milliseconds per character for the typing animation";
+        }
+    },
+    boot_animation {
+        @Override
+        public String defaultValue() {
+            return "true";
+        }
+
+        @Override
+        public String type() {
+            return XMLPrefsSave.BOOLEAN;
+        }
+
+        @Override
+        public String info() {
+            return "If true, a BIOS-like boot screen is shown when t-ui starts";
+        }
     };
 
     @Override

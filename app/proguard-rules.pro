@@ -25,3 +25,11 @@
 -dontwarn org.slf4j.**
 
 -dontwarn org.jdom2.**
+
+# JSch instantiates its algorithms by class name (JSch.setConfig)
+-keep class com.jcraft.jsch.** { *; }
+-dontwarn com.jcraft.jsch.**
+-dontwarn org.apache.logging.log4j.**
+-dontwarn org.newsclub.net.unix.**
+-dontwarn com.sun.jna.**
+-dontwarn org.ietf.jgss.**

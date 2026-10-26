@@ -5,6 +5,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -36,6 +37,7 @@ import java.util.Set;
 import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.commands.tuixt.TuixtActivity;
 import ohi.andre.consolelauncher.managers.ContactManager;
+import ohi.andre.consolelauncher.managers.HistoryManager;
 import ohi.andre.consolelauncher.managers.RegexManager;
 import ohi.andre.consolelauncher.managers.TerminalManager;
 import ohi.andre.consolelauncher.managers.TimeManager;
@@ -57,6 +59,8 @@ import ohi.andre.consolelauncher.tuils.LongClickableSpan;
 import ohi.andre.consolelauncher.tuils.PrivateIOReceiver;
 import ohi.andre.consolelauncher.tuils.PublicIOReceiver;
 import ohi.andre.consolelauncher.tuils.SimpleMutableEntry;
+import ohi.andre.consolelauncher.tuils.BackupManager;
+import ohi.andre.consolelauncher.tuils.BootSequence;
 import ohi.andre.consolelauncher.tuils.Tuils;
 import ohi.andre.consolelauncher.tuils.interfaces.Inputable;
 import ohi.andre.consolelauncher.tuils.interfaces.Outputable;
@@ -66,10 +70,14 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
 
     public static final int COMMAND_REQUEST_PERMISSION = 10;
     public static final int STARTING_PERMISSION = 11;
+
+    private static final String ASKED_STARTING_PERMISSIONS = "asked_starting_permissions";
+    private static final String ASKED_NOTIFICATION_ACCESS = "asked_notification_access";
     public static final int COMMAND_SUGGESTION_REQUEST_PERMISSION = 12;
     public static final int LOCATION_REQUEST_PERMISSION = 13;
 
     public static final int TUIXT_REQUEST = 10;
+    public static final int RESTORE_REQUEST = 11;
 
     private UIManager ui;
     private MainManager main;
@@ -222,24 +230,12 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
             }
         }
 
-        // Special check for MANAGE_EXTERNAL_STORAGE (API 30+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!android.os.Environment.isExternalStorageManager()) {
-                try {
-                    Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                    intent.addCategory("android.intent.category.DEFAULT");
-                    intent.setData(android.net.Uri.parse(String.format("package:%s", getApplicationContext().getPackageName())));
-                    startActivityForResult(intent, 100);
-                } catch (Exception e) {
-                    Intent intent = new Intent();
-                    intent.setAction(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                    startActivityForResult(intent, 100);
-                }
-                Toast.makeText(this, "Please grant storage permissions to T-UI", Toast.LENGTH_LONG).show();
-            }
-        }
+        // All-files access is no longer requested here: file commands ask for it when they need it (see Tuils.requestStorageAccess)
 
-        if (!permissionsToRequest.isEmpty()) {
+        // Runtime permissions are asked only on the very first launch; afterwards commands request what they need
+        SharedPreferences uiPrefs = getSharedPreferences(UIManager.PREFS_NAME, 0);
+        if (!permissionsToRequest.isEmpty() && !uiPrefs.getBoolean(ASKED_STARTING_PERMISSIONS, false)) {
+            uiPrefs.edit().putBoolean(ASKED_STARTING_PERMISSIONS, true).apply();
             ActivityCompat.requestPermissions(this, permissionsToRequest.toArray(new String[0]), LauncherActivity.STARTING_PERMISSION);
         } else {
             canApplyTheme = true;
@@ -254,6 +250,7 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
         XMLPrefsManager.loadCommons(this);
         new RegexManager(LauncherActivity.this);
         new TimeManager(this);
+        new HistoryManager(this);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(PrivateIOReceiver.ACTION_INPUT);
@@ -333,11 +330,12 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
                     pm.setComponentEnabledSetting(notificationComponent, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
 
                     if (!Tuils.hasNotificationAccess(this)) {
-                        Intent i = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
-                        if (i.resolveActivity(getPackageManager()) == null) {
-                            Toast.makeText(this, R.string.no_notification_access, Toast.LENGTH_LONG).show();
+                        SharedPreferences uiPrefs = getSharedPreferences(UIManager.PREFS_NAME, 0);
+                        if (!uiPrefs.getBoolean(ASKED_NOTIFICATION_ACCESS, false)) {
+                            uiPrefs.edit().putBoolean(ASKED_NOTIFICATION_ACCESS, true).apply();
+                            Tuils.openNotificationAccessSettings(this);
                         } else {
-                            startActivity(i);
+                            Tuils.sendOutput(this, getString(R.string.output_notification_access_hint));
                         }
                     }
 
@@ -390,6 +388,8 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
 
         in.in(Tuils.EMPTYSTRING);
         ui.focusTerminal();
+
+        BootSequence.onStart(this, main);
 
         if(fullscreen) Assist.assistActivity(this);
 
@@ -455,8 +455,8 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
         if(ui != null) ui.dispose();
 
         XMLPrefsManager.dispose();
-        RegexManager.instance.dispose();
-        TimeManager.instance.dispose();
+        if(RegexManager.instance != null) RegexManager.instance.dispose();
+        if(TimeManager.instance != null) TimeManager.instance.dispose();
 
         disposed = true;
     }
@@ -551,6 +551,17 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        if(requestCode == RESTORE_REQUEST) {
+            if(resultCode != RESULT_OK || data == null || data.getData() == null) return;
+            final android.net.Uri uri = data.getData();
+            new Thread(() -> {
+                String result = BackupManager.restore(this, uri);
+                Tuils.sendOutput(this, result);
+                if(result.startsWith("Restored")) runOnUiThread(() -> new Handler().postDelayed(this::reload, 1200));
+            }).start();
+            return;
+        }
+
         if(requestCode == TUIXT_REQUEST && resultCode != 0) {
             if(resultCode == TuixtActivity.BACK_PRESSED) {
                 Tuils.sendOutput(this, R.string.tuixt_back_pressed);
@@ -578,28 +589,15 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
                     }
                     break;
                 case STARTING_PERMISSION:
-                    int count = 0;
-                    while(count < permissions.length && count < grantResults.length) {
+//                    the window was already shown without the final theme: recreate so the wallpaper/background is applied.
+//                    Denied permissions are not fatal, each command asks again when it needs one
+                    for(int count = 0; count < permissions.length && count < grantResults.length; count++) {
                         if(grantResults[count] == PackageManager.PERMISSION_DENIED) {
-                            Toast.makeText(this, R.string.permissions_toast, Toast.LENGTH_LONG).show();
-                            new Thread() {
-                                @Override
-                                public void run() {
-                                    super.run();
-
-                                    try {
-                                        sleep(2000);
-                                    } catch (InterruptedException e) {}
-
-                                    runOnUiThread(stopActivity);
-                                }
-                            }.start();
-                            return;
+                            Toast.makeText(this, R.string.permissions_denied_toast, Toast.LENGTH_LONG).show();
+                            break;
                         }
-                        count++;
                     }
-                    canApplyTheme = false;
-                    finishOnCreate();
+                    recreate();
                     break;
                 case COMMAND_SUGGESTION_REQUEST_PERMISSION:
                     if (grantResults.length == 0 && grantResults[0] != PackageManager.PERMISSION_GRANTED) {

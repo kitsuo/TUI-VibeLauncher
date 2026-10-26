@@ -38,7 +38,10 @@ import ohi.andre.consolelauncher.managers.notifications.KeeperService;
 import ohi.andre.consolelauncher.managers.xml.XMLPrefsManager;
 import ohi.andre.consolelauncher.managers.xml.options.Behavior;
 import ohi.andre.consolelauncher.managers.xml.options.Theme;
-import ohi.andre.consolelauncher.tuils.BusyBoxInstaller;
+import ohi.andre.consolelauncher.managers.SshManager;
+import ohi.andre.consolelauncher.tuils.Pipes;
+import ohi.andre.consolelauncher.tuils.ProcessInterrupter;
+import ohi.andre.consolelauncher.tuils.TermuxBridge;
 import ohi.andre.consolelauncher.tuils.PrivateIOReceiver;
 import ohi.andre.consolelauncher.tuils.StoppableThread;
 import ohi.andre.consolelauncher.tuils.Tuils;
@@ -384,6 +387,19 @@ public class MainManager {
 
     public CommandExecuter executer() {
         return (input, obj) -> {
+//            while an ssh session is open, everything typed goes to the remote shell
+            if(SshManager.isActive()) {
+                SshManager.onInput(ProcessInterrupter.isCtrlC(input) ? SshManager.CTRL_C : input);
+                return;
+            }
+
+            if(ProcessInterrupter.isCtrlC(input)) {
+                new Thread(() -> {
+                    if(ProcessInterrupter.interrupt() == 0) Tuils.sendOutput(mContext, "Nothing to stop", TerminalManager.CATEGORY_OUTPUT);
+                }).start();
+                return;
+            }
+
             AppsManager.LaunchInfo li = obj instanceof AppsManager.LaunchInfo ? (AppsManager.LaunchInfo) obj : null;
 
             onCommand(input, li, false);
@@ -490,6 +506,9 @@ public class MainManager {
 
     private class ShellCommandTrigger implements CmdTrigger {
 
+        final java.util.Set<String> FILE_SHELL_COMMANDS = new java.util.HashSet<>(java.util.Arrays.asList(
+                "ls", "cd", "cat", "cp", "mv", "rm", "mkdir", "touch", "find", "du"));
+
         final int CD_CODE = 10;
         final int PWD_CODE = 11;
 
@@ -514,14 +533,20 @@ public class MainManager {
             final String trimmed = input.trim();
             final String cmd = trimmed.split(" ")[0];
 
-            if (!BusyBoxInstaller.isInstalled(mContext)) {
-                String[] common = {"ping", "echo", "ls", "grep", "cat", "vi", "top", "ps", "ip"};
-                for (String c : common) {
-                    if (cmd.equalsIgnoreCase(c)) {
-                        Tuils.sendOutput(mContext, "Command not found. You can install BusyBox using: bbman -install", TerminalManager.CATEGORY_OUTPUT);
-                        return true;
-                    }
+            if (FILE_SHELL_COMMANDS.contains(cmd.toLowerCase()) && !Tuils.hasStorageAccess(mContext)) {
+                Tuils.requestStorageAccess(mContext);
+            }
+
+//            Android only ships toybox: other Linux tools are run by Termux when it's installed
+            if (!TermuxBridge.isAndroidCommand(trimmed)) {
+                if (TermuxBridge.isInstalled(mContext)) {
+                    info.lastCommand = input;
+                    String message = TermuxBridge.run(mContext, trimmed, TermuxBridge.isInteractive(trimmed));
+                    if (message != null) Tuils.sendOutput(mContext, message, TerminalManager.CATEGORY_OUTPUT);
+                } else {
+                    Tuils.sendOutput(mContext, cmd + ": command not found. Android doesn't include it: install Termux to use Linux tools (type: termux -setup)", TerminalManager.CATEGORY_OUTPUT);
                 }
+                return true;
             }
 
             new StoppableThread() {
@@ -553,10 +578,22 @@ public class MainManager {
 
     private class TuiCommandTrigger implements CmdTrigger {
 
+//        their text can contain | and > (remote commands, notes, aliases...)
+        final java.util.Set<String> NO_PIPES = new java.util.HashSet<>(java.util.Arrays.asList(
+                "ssh", "termux", "alias", "notes", "reply", "regex", "search", "config", "theme", "htmlextract", "tuixt", "rss"));
+
         @Override
         public boolean trigger(final MainPack info, final String input) throws Exception {
 
-            final Command command = CommandTuils.parse(input, info);
+//            "scan | grep 192", "fetch > phone.txt": these commands take the whole line as it is
+            Pipes pipes = Pipes.split(input);
+            if(pipes != null) {
+                Command c = CommandTuils.parse(pipes.command, info);
+                if(c == null || NO_PIPES.contains(c.cmd.getClass().getSimpleName())) pipes = null;
+            }
+            final Pipes finalPipes = pipes;
+
+            final Command command = CommandTuils.parse(pipes != null ? pipes.command : input, info);
             if(command == null) return false;
 
             mainPack.lastCommand = input;
@@ -567,6 +604,19 @@ public class MainManager {
                     super.run();
 
                     try {
+                        if(finalPipes != null) {
+                            Tuils.startCapture();
+                            String output, captured;
+                            try {
+                                output = command.exec(info);
+                            } finally {
+                                captured = Tuils.stopCapture();
+                            }
+                            if(output != null) captured = captured.length() > 0 ? captured + Tuils.NEWLINE + output : output;
+                            finalPipes.deliver(mContext, info.currentDirectory, captured);
+                            return;
+                        }
+
                         String output = command.exec(info);
                         if(output != null) {
                             Tuils.sendOutput(info, output, TerminalManager.CATEGORY_OUTPUT);

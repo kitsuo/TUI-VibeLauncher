@@ -531,8 +531,29 @@ public enum Theme implements XMLPrefsSave {
         public String[] invalidValues() {
             return new String[] {"#ff000000"};
         }
-    }
-    ;
+    },
+    servers_up_color {
+        @Override
+        public String defaultValue() {
+            return "#27AE60";
+        }
+
+        @Override
+        public String info() {
+            return "The color of a server that answers";
+        }
+    },
+    servers_down_color {
+        @Override
+        public String defaultValue() {
+            return "#FF5252";
+        }
+
+        @Override
+        public String info() {
+            return "The color of a server that doesn't answer";
+        }
+    };
 
     @Override
     public XMLPrefsElement parent() {
