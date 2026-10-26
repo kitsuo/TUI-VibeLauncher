@@ -947,7 +947,10 @@ public class UIManager implements OnTouchListener {
         if (!XMLPrefsManager.getBoolean(Ui.system_wallpaper) || !canApplyTheme) {
             rootView.setBackgroundColor(XMLPrefsManager.getColor(Theme.bg_color));
         } else {
-            rootView.setBackgroundColor(XMLPrefsManager.getColor(Theme.overlay_color));
+//            the darkness comes from wallpaper_dim (fx dim), not from the overlay alpha: theme presets set it to 0
+            int dim = Math.max(0, Math.min(100, XMLPrefsManager.getInt(Ui.wallpaper_dim)));
+            int overlay = (XMLPrefsManager.getColor(Theme.overlay_color) & 0x00ffffff) | (Math.round(dim * 2.55f) << 24);
+            rootView.setBackgroundColor(overlay);
         }
 
 //        scrolllllll

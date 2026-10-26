@@ -34,6 +34,16 @@ public class fx implements CommandAbstraction {
                 save = Ui.boot_animation;
                 value = onOff(args[1]);
                 break;
+            case "dim":
+                save = Ui.wallpaper_dim;
+                try {
+                    int percent = Integer.parseInt(args[1].replace("%", ""));
+                    value = percent >= 0 && percent <= 100 ? String.valueOf(percent) : null;
+                } catch (NumberFormatException e) {
+                    value = null;
+                }
+                if (value == null) return "Dim: a percentage, from 0 (wallpaper as it is) to 100 (black)";
+                break;
             case "speed":
                 save = Ui.typing_speed;
                 try {
@@ -70,6 +80,7 @@ public class fx implements CommandAbstraction {
                 + "\ntyping: " + (XMLPrefsManager.getBoolean(Ui.typing_animation) ? "on" : "off")
                 + " (" + XMLPrefsManager.getInt(Ui.typing_speed) + " ms per character)"
                 + "\nboot: " + (XMLPrefsManager.getBoolean(Ui.boot_animation) ? "on" : "off")
+                + "\ndim: " + XMLPrefsManager.getInt(Ui.wallpaper_dim) + "% (wallpaper darkening)"
                 + "\n\n" + pack.context.getString(R.string.help_fx);
     }
 

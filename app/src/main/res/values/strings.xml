@@ -497,7 +497,8 @@
         \nfx crt on/off -> scanlines and glowing text, like an old monitor
         \nfx typing on/off -> the output is typed one character at a time
         \nfx speed [ms] -> milliseconds per character for the typing animation (default 6)
-        \nfx boot on/off -> the BIOS-like boot screen when T-UI starts</string>
+        \nfx boot on/off -> the BIOS-like boot screen when T-UI starts
+        \nfx dim [0-100] -> how much the wallpaper is darkened behind the text (default 80)</string>
     <string name="help_findout">Highlight a word in the output
         \n\nUsage:
         \nfindout [text] -> highlights every [text] and scrolls to the last one

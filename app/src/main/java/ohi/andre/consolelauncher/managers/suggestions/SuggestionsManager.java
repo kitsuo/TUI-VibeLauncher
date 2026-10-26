@@ -782,8 +782,8 @@ public class SuggestionsManager {
                 options.addAll(HostsManager.names());
                 break;
             case "fx":
-                if (position == 1) options.addAll(java.util.Arrays.asList("crt", "typing", "speed"));
-                else if (position == 2 && !words[1].equals("speed")) options.addAll(java.util.Arrays.asList("on", "off"));
+                if (position == 1) options.addAll(java.util.Arrays.asList("crt", "typing", "boot", "dim", "speed"));
+                else if (position == 2 && !words[1].equals("speed") && !words[1].equals("dim")) options.addAll(java.util.Arrays.asList("on", "off"));
                 else return null;
                 break;
             case "termux":

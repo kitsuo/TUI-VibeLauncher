@@ -1083,6 +1083,22 @@ public enum Ui implements XMLPrefsSave {
         public String info() {
             return "If true, a BIOS-like boot screen is shown when t-ui starts";
         }
+    },
+    wallpaper_dim {
+        @Override
+        public String defaultValue() {
+            return "80";
+        }
+
+        @Override
+        public String type() {
+            return XMLPrefsSave.INTEGER;
+        }
+
+        @Override
+        public String info() {
+            return "How much the system wallpaper is darkened behind the text, from 0 (not at all) to 100 (black)";
+        }
     };
 
     @Override
