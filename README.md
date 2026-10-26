@@ -4,8 +4,19 @@ An Android launcher where the home screen is a command line. This repository is 
 
 Built for a Samsung Galaxy S25. Features are tested on the Android 15 emulator (API 35). The minimum version is still Android 5.0 (API 21).
 
+## Screenshots
+
+| Home screen and boot screen | `fetch` | Saved servers, `scan`, `ports` |
+|---|---|---|
+| ![Home screen](docs/screenshots/home.png) | ![fetch](docs/screenshots/fetch.png) | ![Network tools](docs/screenshots/network.png) |
+| **Ctrl+C, pipes, `findout`** | **`amber` preset with `fx crt on`** | **`c64` preset** |
+| ![Terminal](docs/screenshots/terminal.png) | ![Amber and CRT effect](docs/screenshots/amber-crt.png) | ![C64 preset](docs/screenshots/c64.png) |
+
+Screenshots taken on the Android 15 emulator. The status line under the unlock counter shows the saved servers: `host` answers, `backup` doesn't.
+
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Android 15 compatibility](#android-15-compatibility)
 - [New commands](#new-commands)
 - [SSH and servers](#ssh-and-servers)
@@ -25,6 +36,7 @@ Built for a Samsung Galaxy S25. Features are tested on the Android 15 emulator (
 |---|---|
 | Target SDK 35, Gradle 8.14, Android Gradle Plugin 8.11, Java 17 | The previous versions don't build with a recent JDK and don't target Android 15. |
 | Black background by default | The background was white on Android 15. |
+| Wallpaper darkened behind the text | Theme presets made the wallpaper fully visible, so text was unreadable on light wallpapers. The darkening is now a separate setting (`fx dim`, 80% by default) that presets don't change. |
 | Edge-to-edge display disabled | Android 15 enables it by default, which put the text under the status bar. |
 | Interactive notifications fixed | Quick reply from a T-UI notification was blocked by Android 14 and later. |
 | Permissions asked only once | T-UI asked for its permissions at every start. Storage and notification access are now requested when a command needs them, or with `tui -storage` and `tui -notifaccess`. |
@@ -213,6 +225,7 @@ fx crt on                   scanlines, darker corners and glowing text
 fx typing on                output is shown one character at a time
 fx speed 3                  animation speed, in milliseconds per character (default 6)
 fx boot off                 turns off the boot screen
+fx dim 80                   darkens the wallpaper behind the text, from 0 (not at all) to 100 (black)
 theme -preset amber         amber monitor
 theme -preset matrix        green on black
 theme -preset c64           Commodore 64 blue
