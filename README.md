@@ -245,15 +245,66 @@ During the typing animation, large output (more than 1,500 characters waiting) i
 
 ## Building
 
-Requirements: JDK 17 or later, Android SDK 35.
+No prebuilt APK is published. Build it from the source as follows.
+
+**1. Install a JDK**
+
+JDK 17 or later, for example [Eclipse Temurin](https://adoptium.net/). Set `JAVA_HOME` to its folder if `java -version` doesn't show version 17 or later.
+
+**2. Install the Android SDK**
+
+Either install [Android Studio](https://developer.android.com/studio), which installs the SDK, or use the [command-line tools](https://developer.android.com/studio#command-line-tools-only) and run:
 
 ```
+sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+```
+
+**3. Get the source**
+
+```
+git clone https://github.com/kitsuo/TUI-VibeLauncher.git
+cd TUI-VibeLauncher
+```
+
+**4. Point the build to the SDK**
+
+Create a file named `local.properties` in the project folder, with the SDK location (Android Studio creates it when the project is opened):
+
+```
+# Windows
+sdk.dir=C:/Users/<you>/AppData/Local/Android/Sdk
+# Linux
+sdk.dir=/home/<you>/Android/Sdk
+# macOS
+sdk.dir=/Users/<you>/Library/Android/sdk
+```
+
+**5. Build**
+
+```
+# Linux, macOS
 ./gradlew assembleFdroidRelease
+
+# Windows
+gradlew.bat assembleFdroidRelease
 ```
 
-The APK is written to `app/build/outputs/apk/fdroid/release/`.
+The first build downloads Gradle and the dependencies and takes a few minutes. The APK is written to:
 
-To sign the release build with your own key, add these lines to `local.properties`, which is not versioned:
+```
+app/build/outputs/apk/fdroid/release/app-fdroid-release.apk
+```
+
+**6. Install it on the phone**
+
+- Copy the APK to the phone and open it. Android asks to allow installing apps from the file manager (or the browser) the first time.
+- Or, with USB debugging enabled: `adb install -r app/build/outputs/apk/fdroid/release/app-fdroid-release.apk`
+
+Then press the Home button and choose T-UI as the default home app.
+
+**Signing**
+
+Without any configuration, the release APK is signed with the debug key of your machine. To sign it with your own key, add these lines to `local.properties`, which is not versioned:
 
 ```
 storeFile=release.jks
@@ -262,7 +313,13 @@ keyAlias=...
 keyPassword=...
 ```
 
-Without them, the release build is signed with the debug key.
+Android installs an update only if it is signed with the same key as the installed app. Build every version with the same key; otherwise the app must be uninstalled first, which deletes its settings (run `tui -backup` before).
+
+**Troubleshooting**
+
+- `Android Gradle plugin requires Java 17 to run`: Gradle uses an older JDK. Set `JAVA_HOME` to a JDK 17 or later.
+- `SDK location not found`: `local.properties` is missing or `sdk.dir` is wrong.
+- On Windows, with a recent JDK and a user folder whose name contains a space, Gradle can fail with `Unable to establish loopback connection`. Set a temporary folder without spaces before building: `set JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=C:/temp` (`C:/temp` must exist).
 
 More build, install and debugging commands are in [COMMANDS.md](COMMANDS.md).
 
